@@ -250,6 +250,68 @@
   .empty-state .emoji { font-size: 2.5rem; margin-bottom: 12px; }
   .empty-state p { font-size: 0.85rem; line-height: 1.5; }
 
+  /* GEOCODING SEARCH BAR (no mapa) */
+  .map-search-bar {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 600; width: min(420px, calc(100vw - 80px));
+  }
+  .map-search-input-wrap {
+    display: flex; align-items: center; gap: 0;
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .map-search-input-wrap input {
+    flex: 1; padding: 11px 14px; background: transparent;
+    border: none; border-radius: 0; color: var(--text);
+    font-size: 0.88rem;
+  }
+  .map-search-input-wrap input:focus { border-color: transparent; }
+  .map-search-btn {
+    padding: 0 14px; height: 44px; background: var(--accent);
+    border: none; color: white; cursor: pointer; font-size: 1rem;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .map-search-btn:hover { background: #3a7de8; }
+  .map-search-btn.loading { background: var(--surface3); cursor: default; }
+  .geo-suggestions {
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: none; border-radius: 0 0 var(--radius) var(--radius);
+    max-height: 240px; overflow-y: auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+  .geo-suggestions:empty { display: none; }
+  .geo-item {
+    padding: 10px 14px; cursor: pointer; font-size: 0.82rem;
+    border-bottom: 1px solid var(--border); transition: background 0.15s;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .geo-item:last-child { border-bottom: none; }
+  .geo-item:hover { background: var(--surface2); }
+  .geo-item-icon { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+  .geo-item-text { display: flex; flex-direction: column; gap: 2px; }
+  .geo-item-main { color: var(--text); font-weight: 500; }
+  .geo-item-sub { color: var(--text3); font-size: 0.76rem; }
+  .geo-no-result { padding: 12px 14px; color: var(--text3); font-size: 0.82rem; text-align: center; }
+
+  /* GEOCODING no modal */
+  .field-geo-wrap { position: relative; }
+  .field-geo-suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 3000;
+    background: var(--surface); border: 1px solid var(--accent);
+    border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    max-height: 200px; overflow-y: auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  }
+  .field-geo-suggestions:empty { display: none; }
+  .field-geo-item {
+    padding: 9px 12px; cursor: pointer; font-size: 0.82rem;
+    border-bottom: 1px solid var(--border); transition: background 0.15s;
+  }
+  .field-geo-item:last-child { border-bottom: none; }
+  .field-geo-item:hover { background: var(--surface2); }
+  .field-geo-item b { color: var(--accent); font-size: 0.75rem; display: block; margin-bottom: 2px; }
+
   /* MAP CONTROLS */
   .map-fab {
     position: absolute; bottom: 24px; right: 24px; z-index: 500;
@@ -316,7 +378,16 @@
 
   <div class="map-wrapper">
     <div id="map" style="width:100%;height:100%;min-height:400px;"></div>
-    <div class="map-info" id="mapInfo">Clique no mapa para adicionar uma visita</div>
+
+    <!-- BARRA DE BUSCA DE ENDEREÇO NO MAPA -->
+    <div class="map-search-bar">
+      <div class="map-search-input-wrap">
+        <input type="text" id="mapGeoInput" placeholder="🔍 Buscar endereço no mapa..." autocomplete="off"
+          oninput="onMapGeoInput()" onkeydown="onMapGeoKey(event)">
+        <button class="map-search-btn" id="mapGeoBtn" onclick="searchMapGeo()" title="Buscar">🔍</button>
+      </div>
+      <div class="geo-suggestions" id="mapGeoSugg"></div>
+    </div>
     <div class="map-fab">
       <button class="fab-btn locate" onclick="locateMe()" title="Minha localização">📍</button>
       <button class="fab-btn" onclick="openModal()" title="Nova visita">＋</button>
@@ -327,7 +398,10 @@
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
-    <div class="modal-title" id="modalTitle">Nova Visita</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+      <div class="modal-title" id="modalTitle">Nova Visita</div>
+      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 0 0 12px;" title="Fechar">✕</button>
+    </div>
     <div class="modal-subtitle">Preencha os dados do cliente e clique no mapa para definir a localização.</div>
 
     <div id="pickingHint" class="picking-hint" style="display:none;">
@@ -365,13 +439,33 @@
     </div>
 
     <div class="form-group">
-      <label>Endereço (opcional)</label>
+      <label>🔍 Buscar Endereço (preenche localização automaticamente)</label>
+      <div class="field-geo-wrap">
+        <input type="text" id="f_geo_search" placeholder="Digite rua, cidade, bairro..."
+          autocomplete="off" oninput="onModalGeoInput()" onkeydown="onModalGeoKey(event)">
+        <div class="field-geo-suggestions" id="modalGeoSugg"></div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Endereço (preenchido automaticamente ou manual)</label>
       <input type="text" id="f_endereco" placeholder="Rua, número, bairro...">
     </div>
 
     <div class="form-group">
       <label>Observações</label>
       <textarea id="f_obs" placeholder="Anotações sobre a visita, próximos passos..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>🔗 Colar Link de Localização <span style="color:var(--text3);font-weight:400;">(Google Maps, WhatsApp, Waze...)</span></label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="f_link_loc"
+          placeholder="https://maps.app.goo.gl/... ou cole coordenadas"
+          style="flex:1;">
+        <button class="btn btn-primary" onclick="saveMapsLink()" style="flex-shrink:0;white-space:nowrap;padding:0 14px;">🔗 Salvar</button>
+      </div>
+      <div id="link_loc_feedback" style="margin-top:6px;font-size:0.78rem;min-height:18px;"></div>
     </div>
 
     <div class="form-group">
@@ -424,7 +518,8 @@ window.addEventListener('load', function() {
   mapEl.style.width = '100%';
   mapEl.style.height = '100%';
 
-  map = L.map('map', { zoomControl: false }).setView([-15.78, -47.93], 5);
+  // Sul de SC: centro em Criciúma/Tubarão, zoom 10
+  map = L.map('map', { zoomControl: false }).setView([-28.68, -49.37], 10);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
@@ -432,8 +527,6 @@ window.addEventListener('load', function() {
   }).addTo(map);
 
   L.control.zoom({ position: 'topright' }).addTo(map);
-
-  setTimeout(() => { map.invalidateSize(); }, 300);
 
   map.on('click', (e) => {
     if (!pickingMode) {
@@ -443,6 +536,18 @@ window.addEventListener('load', function() {
       stopPicking();
     }
   });
+
+  // Renderiza marcadores assim que o mapa estiver pronto
+  setTimeout(function() {
+    map.invalidateSize();
+    renderMarkers();
+    // Se há clientes com coords, ajusta o zoom para mostrar todos
+    const comCoords = clients.filter(c => c.lat && c.lng);
+    if (comCoords.length > 0) {
+      const bounds = L.latLngBounds(comCoords.map(c => [c.lat, c.lng]));
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+    }
+  }, 350);
 });
 
 // ─── MARKER ICON ─────────────────────────────────────────────────────────────
@@ -474,7 +579,7 @@ function renderMarkers() {
 }
 
 function buildPopup(c) {
-  const gmLink = `https://www.google.com/maps?q=${c.lat},${c.lng}`;
+  const gmLink = c.mapsLink || `https://www.google.com/maps?q=${c.lat},${c.lng}`;
   const st = STATUS[c.status];
   return `<div style="min-width:200px;">
     <div class="popup-name">${c.nome}</div>
@@ -483,9 +588,10 @@ function buildPopup(c) {
     ${c.estudas ? `<div class="popup-info">📦 ${c.estudas} estudas</div>` : ''}
     ${c.endereco ? `<div class="popup-info">📍 ${c.endereco}</div>` : ''}
     ${c.obs ? `<div class="popup-info" style="margin-top:4px;font-style:italic;">"${c.obs}"</div>` : ''}
-    <div class="popup-info" style="margin-top:6px;font-family:monospace;font-size:0.72rem;color:#545d72;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
+    ${c.mapsLink ? `<div class="popup-info" style="margin-top:4px;font-size:0.72rem;color:#27c47b;">🔗 Link do cliente salvo</div>` : ''}
+    <div class="popup-info" style="margin-top:4px;font-family:monospace;font-size:0.72rem;color:#545d72;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
     <div class="popup-actions">
-      <a href="${gmLink}" target="_blank" class="popup-btn popup-btn-maps">🗺️ Google Maps</a>
+      <a href="${gmLink}" target="_blank" class="popup-btn popup-btn-maps">🗺️ Abrir Maps</a>
       <button onclick="editClient('${c.id}')" class="popup-btn popup-btn-edit">✏️ Editar</button>
       <button onclick="deleteClient('${c.id}')" class="popup-btn popup-btn-del">🗑️</button>
     </div>
@@ -527,8 +633,8 @@ function renderList() {
         ${c.lat ? `<div class="card-info-row"><span class="icon">🌐</span><span style="font-family:monospace;font-size:0.75rem;">${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}</span></div>` : ''}
       </div>
       <div class="card-actions">
-        ${c.lat ? `<button class="card-btn maps" onclick="openGoogleMaps('${c.id}',event)">🗺️ Maps</button>` : ''}
-        ${c.lat ? `<button class="card-btn maps" onclick="copyLink('${c.id}',event)" style="border-color:#27c47b;color:#27c47b;">🔗 Link</button>` : ''}
+        ${(c.lat || c.mapsLink) ? `<button class="card-btn maps" onclick="openGoogleMaps('${c.id}',event)">🗺️ Maps</button>` : ''}
+        ${(c.lat || c.mapsLink) ? `<button class="card-btn maps" onclick="copyLink('${c.id}',event)" style="border-color:#27c47b;color:#27c47b;">🔗 Link</button>` : ''}
         <button class="card-btn edit" onclick="editClient('${c.id}',event)">✏️ Editar</button>
         <button class="card-btn del" onclick="deleteClient('${c.id}',event)">🗑️</button>
       </div>
@@ -579,6 +685,11 @@ function openModal(lat, lng) {
   document.getElementById('f_status').value = 'interessado';
   document.getElementById('f_endereco').value = '';
   document.getElementById('f_obs').value = '';
+  document.getElementById('f_geo_search').value = '';
+  document.getElementById('modalGeoSugg').innerHTML = '';
+  document.getElementById('f_link_loc').value = '';
+  document.getElementById('link_loc_feedback').textContent = '';
+  savedMapsLink = '';
   tempLat = lat || null;
   tempLng = lng || null;
   updateLocPreview();
@@ -590,8 +701,11 @@ function openModalAtCoord(lat, lng) {
 }
 
 function closeModal() {
+  pickingMode = false;
+  if (map) { map.getContainer().style.cursor = ''; }
+  document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
+  document.getElementById('pickingHint').style.display = 'none';
   document.getElementById('modalOverlay').classList.remove('open');
-  stopPicking();
 }
 
 function closeModalOutside(e) {
@@ -608,9 +722,9 @@ function startPicking() {
 
 function stopPicking() {
   pickingMode = false;
+  if (map) { map.getContainer().style.cursor = ''; }
   document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
-  map.getContainer().style.cursor = '';
-  if (tempLat) document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('modalOverlay').classList.add('open');
 }
 
 function setCoords(lat, lng) {
@@ -643,6 +757,7 @@ function saveClient() {
     status: document.getElementById('f_status').value,
     endereco: document.getElementById('f_endereco').value.trim(),
     obs: document.getElementById('f_obs').value.trim(),
+    mapsLink: savedMapsLink || (document.getElementById('f_link_loc').value.trim()) || '',
     lat: tempLat,
     lng: tempLng,
     updatedAt: new Date().toISOString(),
@@ -682,6 +797,14 @@ function editClient(id, e) {
   document.getElementById('f_status').value = c.status;
   document.getElementById('f_endereco').value = c.endereco || '';
   document.getElementById('f_obs').value = c.obs || '';
+  document.getElementById('f_geo_search').value = '';
+  document.getElementById('modalGeoSugg').innerHTML = '';
+  // Preenche link de localização salvo
+  document.getElementById('f_link_loc').value = c.mapsLink || '';
+  savedMapsLink = c.mapsLink || '';
+  const fb = document.getElementById('link_loc_feedback');
+  fb.style.color = 'var(--green)';
+  fb.textContent = c.mapsLink ? '🔗 Link salvo anteriormente.' : '';
   tempLat = c.lat; tempLng = c.lng;
   updateLocPreview();
   document.getElementById('pickingHint').style.display = 'none';
@@ -706,15 +829,17 @@ function deleteClient(id, e) {
 function openGoogleMaps(id, e) {
   if (e) e.stopPropagation();
   const c = clients.find(x=>x.id===id);
-  if (!c?.lat) return;
-  window.open(`https://www.google.com/maps?q=${c.lat},${c.lng}`, '_blank');
+  if (!c) return;
+  const url = c.mapsLink || (c.lat ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : null);
+  if (url) window.open(url, '_blank');
 }
 
 function copyLink(id, e) {
   if (e) e.stopPropagation();
   const c = clients.find(x=>x.id===id);
-  if (!c?.lat) return;
-  const link = `https://www.google.com/maps?q=${c.lat},${c.lng}`;
+  if (!c) return;
+  const link = c.mapsLink || (c.lat ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : null);
+  if (!link) return;
   navigator.clipboard.writeText(link).then(() => {
     toast('🔗 Link copiado! Abra no Google Maps.', 'success');
   }).catch(() => {
@@ -750,6 +875,230 @@ function exportData() {
   toast('📤 Dados exportados!', 'success');
 }
 
+// ─── SALVAR LINK DE LOCALIZAÇÃO ──────────────────────────────────────────────
+// Estratégia do sistema de referência: salva o link diretamente (confiável com
+// links encurtados goo.gl, maps.app, WhatsApp, etc.) + tenta extrair coords
+// quando o link contém @lat,lng diretamente.
+let savedMapsLink = '';
+
+function saveMapsLink() {
+  const raw = document.getElementById('f_link_loc').value.trim();
+  const fb  = document.getElementById('link_loc_feedback');
+  if (!raw) { fb.style.color='var(--red)'; fb.textContent='Cole o link antes de salvar.'; return; }
+
+  // Salva o link independentemente
+  savedMapsLink = raw;
+  fb.style.color = 'var(--green)';
+  fb.textContent = '🔗 Link salvo! O representante pode abrir direto no celular.';
+  toast('🔗 Link de localização salvo!', 'success');
+
+  // Tenta extrair coords do link para posicionar no mapa (bônus)
+  let lat = null, lng = null, m;
+
+  // @lat,lng — Google Maps URL completo
+  m = raw.match(/@(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/);
+  if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+
+  // ?q=lat,lng
+  if (!lat) { m = raw.match(/[?&]q=(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);} }
+
+  // ll=lat,lng (Waze, Apple Maps, Google)
+  if (!lat) { m = raw.match(/[?&]ll=(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/); if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);} }
+
+  // geo:lat,lng
+  if (!lat) { m = raw.match(/geo:(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/i); if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);} }
+
+  // Coordenadas soltas: -28.9853, -49.4239
+  if (!lat) { m = raw.match(/(-?\d{1,3}\.\d{4,})\s*[,;\s]+\s*(-?\d{1,3}\.\d{4,})/); if(m){lat=parseFloat(m[1]);lng=parseFloat(m[2]);} }
+
+  if (lat && lng && Math.abs(lat)<=90 && Math.abs(lng)<=180) {
+    setCoords(lat, lng);
+    if (map) map.flyTo([lat, lng], 16, { duration: 1 });
+    fb.textContent = `✅ Link salvo + localização extraída: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    // Reverse geocoding para preencher endereço automaticamente
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=pt-BR`)
+      .then(r=>r.json()).then(data=>{
+        if (data && data.address) {
+          const a = data.address;
+          const addr = [a.road||a.pedestrian, a.house_number, a.suburb||a.neighbourhood, a.city||a.town||a.village].filter(Boolean).join(', ');
+          if (addr && !document.getElementById('f_endereco').value) {
+            document.getElementById('f_endereco').value = addr;
+            fb.textContent = `✅ Link salvo — ${addr}`;
+          }
+        }
+      }).catch(()=>{});
+  }
+}
+
+// ─── GEOCODING (Nominatim / OpenStreetMap) ────────────────────────────────────
+let geoDebounceTimer = null;
+let modalGeoDebounceTimer = null;
+let searchMarker = null; // marcador temporário de busca no mapa
+
+async function nominatimSearch(query) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1&accept-language=pt-BR,pt`;
+  const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR,pt' } });
+  return await res.json();
+}
+
+function formatGeoResult(item) {
+  const a = item.address || {};
+  const parts = [];
+  if (a.road || a.pedestrian) parts.push(a.road || a.pedestrian);
+  if (a.house_number) parts[0] = (parts[0] || '') + ', ' + a.house_number;
+  if (a.suburb || a.neighbourhood) parts.push(a.suburb || a.neighbourhood);
+  if (a.city || a.town || a.village || a.municipality) parts.push(a.city || a.town || a.village || a.municipality);
+  if (a.state) parts.push(a.state);
+  return parts.filter(Boolean).join(' — ') || item.display_name;
+}
+
+function shortAddress(item) {
+  const a = item.address || {};
+  const road = a.road || a.pedestrian || '';
+  const num  = a.house_number ? `, ${a.house_number}` : '';
+  const sub  = a.suburb || a.neighbourhood || a.quarter || '';
+  const city = a.city || a.town || a.village || a.municipality || '';
+  return [road + num, sub, city].filter(Boolean).join(', ') || item.display_name.split(',').slice(0,3).join(',');
+}
+
+// ── BUSCA NO MAPA ─────────────────────────────────────────────────────────────
+function onMapGeoInput() {
+  clearTimeout(geoDebounceTimer);
+  const val = document.getElementById('mapGeoInput').value.trim();
+  if (val.length < 3) { document.getElementById('mapGeoSugg').innerHTML = ''; return; }
+  geoDebounceTimer = setTimeout(() => searchMapGeo(true), 600);
+}
+
+function onMapGeoKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); searchMapGeo(); }
+  if (e.key === 'Escape') { document.getElementById('mapGeoSugg').innerHTML = ''; }
+}
+
+async function searchMapGeo(isSuggest = false) {
+  const input = document.getElementById('mapGeoInput');
+  const btn   = document.getElementById('mapGeoBtn');
+  const sugg  = document.getElementById('mapGeoSugg');
+  const q = input.value.trim();
+  if (!q || q.length < 3) return;
+
+  btn.textContent = '⏳'; btn.classList.add('loading');
+  sugg.innerHTML = '';
+
+  try {
+    const results = await nominatimSearch(q);
+    btn.textContent = '🔍'; btn.classList.remove('loading');
+
+    if (!results.length) {
+      sugg.innerHTML = '<div class="geo-no-result">Nenhum resultado encontrado.</div>';
+      return;
+    }
+
+    if (!isSuggest && results.length === 1) {
+      applyMapGeoResult(results[0]); return;
+    }
+
+    sugg.innerHTML = results.map((r, i) => {
+      const main = formatGeoResult(r).split(' — ');
+      const m = main[0] || r.display_name.split(',')[0];
+      const s = main.slice(1).join(' — ') || r.display_name.split(',').slice(1,3).join(',');
+      return `<div class="geo-item" onclick="applyMapGeoResult(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+        <span class="geo-item-icon">📍</span>
+        <div class="geo-item-text">
+          <span class="geo-item-main">${m}</span>
+          <span class="geo-item-sub">${s}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    btn.textContent = '🔍'; btn.classList.remove('loading');
+    toast('Erro ao buscar endereço. Verifique sua conexão.', 'error');
+  }
+}
+
+function applyMapGeoResult(r) {
+  const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+  document.getElementById('mapGeoSugg').innerHTML = '';
+  document.getElementById('mapGeoInput').value = formatGeoResult(r).split(' — ')[0] || '';
+
+  // Remove marcador anterior de busca
+  if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+
+  // Adiciona marcador de busca (pulsante)
+  const searchIcon = L.divIcon({
+    className: '',
+    html: `<div style="width:18px;height:18px;background:#4f8ef7;border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(79,142,247,0.3);animation:geo-pulse 1.5s infinite;"></div>`,
+    iconSize: [18,18], iconAnchor: [9,9]
+  });
+  searchMarker = L.marker([lat, lng], { icon: searchIcon }).addTo(map);
+  searchMarker.bindPopup(`<b>📍 ${formatGeoResult(r).split(' — ')[0]}</b><br><small>${formatGeoResult(r).split(' — ').slice(1).join(', ')}</small><br><br><button onclick="openModalAtCoord(${lat},${lng})" style="background:#4f8ef7;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.8rem;">＋ Cadastrar aqui</button>`).openPopup();
+  map.flyTo([lat, lng], 16, { duration: 1.2 });
+  toast(`📍 Encontrado: ${formatGeoResult(r).split(' — ')[0]}`, 'success');
+}
+
+// ── BUSCA NO MODAL ─────────────────────────────────────────────────────────────
+function onModalGeoInput() {
+  clearTimeout(modalGeoDebounceTimer);
+  const val = document.getElementById('f_geo_search').value.trim();
+  if (val.length < 3) { document.getElementById('modalGeoSugg').innerHTML = ''; return; }
+  modalGeoDebounceTimer = setTimeout(searchModalGeo, 600);
+}
+
+function onModalGeoKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); searchModalGeo(); }
+  if (e.key === 'Escape') { document.getElementById('modalGeoSugg').innerHTML = ''; }
+}
+
+async function searchModalGeo() {
+  const input = document.getElementById('f_geo_search');
+  const sugg  = document.getElementById('modalGeoSugg');
+  const q = input.value.trim();
+  if (!q || q.length < 3) return;
+
+  sugg.innerHTML = '<div class="field-geo-item" style="color:var(--text3);">⏳ Buscando...</div>';
+
+  try {
+    const results = await nominatimSearch(q);
+    if (!results.length) {
+      sugg.innerHTML = '<div class="field-geo-item" style="color:var(--text3);">Nenhum resultado encontrado.</div>';
+      return;
+    }
+    sugg.innerHTML = results.map(r => {
+      const addr = shortAddress(r);
+      const city = (r.address?.city || r.address?.town || r.address?.village || r.address?.state || '');
+      return `<div class="field-geo-item" onclick='applyModalGeoResult(${JSON.stringify(r)})'>
+        <b>📍 ${city}</b>${addr}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    sugg.innerHTML = '<div class="field-geo-item" style="color:var(--red);">Erro na busca.</div>';
+  }
+}
+
+function applyModalGeoResult(r) {
+  const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+  const addr = shortAddress(r);
+
+  // Preenche campos
+  document.getElementById('f_geo_search').value = addr;
+  document.getElementById('f_endereco').value = addr;
+  document.getElementById('modalGeoSugg').innerHTML = '';
+
+  // Define coordenadas
+  setCoords(lat, lng);
+
+  // Voa para o local no mapa (fundo)
+  if (map) map.flyTo([lat, lng], 16, { duration: 1 });
+
+  toast(`✅ Endereço localizado: ${addr}`, 'success');
+}
+
+// CSS animation para o marcador de busca
+(function() {
+  const style = document.createElement('style');
+  style.textContent = `@keyframes geo-pulse { 0%,100%{box-shadow:0 0 0 4px rgba(79,142,247,0.3)} 50%{box-shadow:0 0 0 8px rgba(79,142,247,0.1)} }`;
+  document.head.appendChild(style);
+})();
+
 // ─── STORAGE ──────────────────────────────────────────────────────────────────
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
@@ -767,19 +1116,7 @@ function toast(msg, type='info') {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 renderList();
-window.addEventListener('load', function() {
-  setTimeout(function() {
-    renderMarkers();
-    if (clients.length > 0) {
-      const hasCoords = clients.filter(c=>c.lat);
-      if (hasCoords.length) {
-        const bounds = L.latLngBounds(hasCoords.map(c=>[c.lat,c.lng]));
-        map.fitBounds(bounds, { padding: [40, 40] });
-      }
-    }
-    map.invalidateSize();
-  }, 400);
-});
+
 </script>
 </body>
 </html>
