@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VisitaPRO — Gestão de Visitas em Campo</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -155,7 +155,7 @@
 
   /* MAP */
   #map { flex: 1; z-index: 1; }
-  .leaflet-container { background: #1a1f2e !important; }
+  .leaflet-container { background: #e8e0d8 !important; }
 
   /* MODAL */
   .modal-overlay {
@@ -391,7 +391,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ─── DATA ───────────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'visitapro_clients';
@@ -416,8 +416,8 @@ const STATUS = {
 // ─── MAP INIT ────────────────────────────────────────────────────────────────
 const map = L.map('map', { zoomControl: false }).setView([-15.78, -47.93], 5);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap © CARTO',
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors',
   maxZoom: 19,
 }).addTo(map);
 
