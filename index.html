@@ -154,8 +154,10 @@
   .client-card.s-outro::before { background: var(--text3); }
 
   /* MAP */
-  #map { flex: 1; z-index: 1; }
-  .leaflet-container { background: #e8e0d8 !important; }
+  html, body { height: 100%; }
+  .map-wrapper { flex: 1; position: relative; height: 100%; min-height: 0; }
+  #map { width: 100%; height: 100%; min-height: 400px; z-index: 1; }
+  .leaflet-container { background: #e8e0d8 !important; width: 100% !important; height: 100% !important; }
 
   /* MODAL */
   .modal-overlay {
@@ -273,8 +275,9 @@
   /* MOBILE */
   @media (max-width: 700px) {
     .sidebar { width: 100%; min-width: unset; position: fixed; bottom: 0; left: 0; right: 0; z-index: 800; height: 50vh; border-right: none; border-top: 1px solid var(--border); }
-    .app { flex-direction: column; }
-    #map { height: 50vh; }
+    .app { flex-direction: column; height: 100vh; }
+    .map-wrapper { height: 50vh; min-height: 50vh; }
+    #map { height: 50vh !important; min-height: 50vh; }
     .stats-bar { display: none; }
     .form-row { grid-template-columns: 1fr; }
   }
@@ -311,8 +314,8 @@
     <div class="client-list" id="clientList"></div>
   </div>
 
-  <div style="flex:1;position:relative;">
-    <div id="map"></div>
+  <div class="map-wrapper">
+    <div id="map" style="width:100%;height:100%;min-height:400px;"></div>
     <div class="map-info" id="mapInfo">Clique no mapa para adicionar uma visita</div>
     <div class="map-fab">
       <button class="fab-btn locate" onclick="locateMe()" title="Minha localização">📍</button>
@@ -414,22 +417,32 @@ const STATUS = {
 };
 
 // ─── MAP INIT ────────────────────────────────────────────────────────────────
-const map = L.map('map', { zoomControl: false }).setView([-15.78, -47.93], 5);
+let map;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 19,
-}).addTo(map);
+window.addEventListener('load', function() {
+  const mapEl = document.getElementById('map');
+  mapEl.style.width = '100%';
+  mapEl.style.height = '100%';
 
-L.control.zoom({ position: 'topright' }).addTo(map);
+  map = L.map('map', { zoomControl: false }).setView([-15.78, -47.93], 5);
 
-map.on('click', (e) => {
-  if (!pickingMode) {
-    openModalAtCoord(e.latlng.lat, e.latlng.lng);
-  } else {
-    setCoords(e.latlng.lat, e.latlng.lng);
-    stopPicking();
-  }
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  setTimeout(() => { map.invalidateSize(); }, 300);
+
+  map.on('click', (e) => {
+    if (!pickingMode) {
+      openModalAtCoord(e.latlng.lat, e.latlng.lng);
+    } else {
+      setCoords(e.latlng.lat, e.latlng.lng);
+      stopPicking();
+    }
+  });
 });
 
 // ─── MARKER ICON ─────────────────────────────────────────────────────────────
@@ -754,14 +767,19 @@ function toast(msg, type='info') {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 renderList();
-renderMarkers();
-if (clients.length > 0) {
-  const hasCoords = clients.filter(c=>c.lat);
-  if (hasCoords.length) {
-    const bounds = L.latLngBounds(hasCoords.map(c=>[c.lat,c.lng]));
-    map.fitBounds(bounds, { padding: [40, 40] });
-  }
-}
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    renderMarkers();
+    if (clients.length > 0) {
+      const hasCoords = clients.filter(c=>c.lat);
+      if (hasCoords.length) {
+        const bounds = L.latLngBounds(hasCoords.map(c=>[c.lat,c.lng]));
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+    }
+    map.invalidateSize();
+  }, 400);
+});
 </script>
 </body>
 </html>
