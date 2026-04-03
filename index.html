@@ -1,34 +1,248 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VisitaPRO — Gestão de Visitas em Campo</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        function closeModal() {
-            // Close the modal on both edit and create views
-            document.getElementById('modalOverlay').classList.remove('open');
-            document.getElementById('modalOverlay').style.opacity = '0';
-            document.getElementById('modalOverlay').style.pointerEvents = 'none';
-            location.reload();  // Refresh the page after closing modal
-        }
-    </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VisitaPRO — Gestão de Visitas em Campo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161921;
+    --surface2: #1e2230;
+    --surface3: #252a3a;
+    --border: #2a3050;
+    --accent: #4f8ef7;
+    --accent2: #7c5cbf;
+    --green: #27c47b;
+    --yellow: #f5c542;
+    --orange: #f07c3a;
+    --red: #e84c6a;
+    --purple: #a578f5;
+    --text: #e8ecf4;
+    --text2: #8892a4;
+    --text3: #545d72;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  /* HEADER */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 58px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: var(--radius-sm); border: none;
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #3a7de8; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-danger:hover { background: #c93d58; }
+  .stats-bar { display: flex; gap: 6px; }
+  .stat-chip {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 0.78rem; color: var(--text2);
+  }
+  .stat-chip b { color: var(--text); font-weight: 600; }
+
+  /* LAYOUT */
+  .app { display: flex; height: calc(100vh - 58px); margin-top: 58px; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 360px; min-width: 360px; background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px; border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .sidebar-header h2 { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 700; }
+  .search-box {
+    position: relative;
+  }
+  .search-box input {
+    width: 100%; padding: 9px 12px 9px 36px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-box input:focus { border-color: var(--accent); }
+  .search-box::before {
+    content: '🔍'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 0.8rem; pointer-events: none;
+  }
+
+  /* MAP */
+  html, body { height: 100%; }
+  .map-wrapper { flex: 1; position: relative; height: 100%; min-height: 0; }
+  #map { width: 100%; height: 100%; min-height: 400px; z-index: 1; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    z-index: 2000; display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh;
+    overflow-y: auto; padding: 28px;
+    transform: translateY(20px); transition: transform 0.3s;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+  /* TOAST */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; min-width: 260px; animation: slideIn 0.3s ease; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }
+
+  /* GEOCODING SEARCH BAR */
+  .map-search-bar {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 600; width: min(420px, calc(100vw - 80px));
+  }
+
+  /* GEOCODING no modal */
+  .field-geo-wrap { position: relative; }
+</style>
 </head>
 <body>
 
 <header>
-    <div class="logo">Visita<span>PRO</span></div>
+  <div class="logo">Visita<span>PRO</span></div>
+  <div class="stats-bar" id="statsBar"></div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="exportData()">📤 Exportar</button>
+    <button class="btn btn-primary" onclick="openModal()">＋ Nova Visita</button>
+  </div>
 </header>
 
-<div id="modalOverlay" class="modal-overlay">
-    <div class="modal">
-        <button onclick="closeModal()">✕</button>
-        <!-- Modal Content -->
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Clientes Cadastrados</h2>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Buscar cliente..." oninput="renderList()">
+      </div>
+      <div class="filter-row" id="filterRow">
+        <button class="filter-btn active" data-filter="todos" onclick="setFilter('todos',this)">Todos</button>
+        <button class="filter-btn" data-filter="interessado" onclick="setFilter('interessado',this)">🟡 Interessado</button>
+        <button class="filter-btn" data-filter="visitado" onclick="setFilter('visitado',this)">🔵 Visitado</button>
+        <button class="filter-btn" data-filter="agendado" onclick="setFilter('agendado',this)">🟣 Agendado</button>
+        <button class="filter-btn" data-filter="comprou" onclick="setFilter('comprou',this)">🟢 Comprou</button>
+        <button class="filter-btn" data-filter="naointeressado" onclick="setFilter('naointeressado',this)">🔴 Não Int.</button>
+        <button class="filter-btn" data-filter="retornar" onclick="setFilter('retornar',this)">🟠 Retornar</button>
+      </div>
     </div>
+    <div class="client-list" id="clientList"></div>
+  </div>
+
+  <div class="map-wrapper">
+    <div id="map" style="width:100%;height:100%;min-height:400px;"></div>
+    <div class="map-search-bar">
+      <div class="map-search-input-wrap">
+        <input type="text" id="mapGeoInput" placeholder="🔍 Buscar endereço no mapa..." autocomplete="off"
+          oninput="onMapGeoInput()" onkeydown="onMapGeoKey(event)">
+        <button class="map-search-btn" id="mapGeoBtn" onclick="searchMapGeo()" title="Buscar">🔍</button>
+      </div>
+      <div class="geo-suggestions" id="mapGeoSugg"></div>
+    </div>
+    <div class="map-fab">
+      <button class="fab-btn locate" onclick="locateMe()" title="Minha localização">📍</button>
+      <button class="fab-btn" onclick="openModal()" title="Nova visita">＋</button>
+    </div>
+  </div>
 </div>
 
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+      <div class="modal-title" id="modalTitle">Nova Visita</div>
+      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.6rem;cursor:pointer;line-height:1;padding:0 0 0 12px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px;" title="Fechar">✕</button>
+    </div>
+    <div class="modal-subtitle">Preencha os dados do cliente e defina a localização.</div>
+
+    <!-- Formulário -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nome do Cliente *</label>
+        <input type="text" id="f_nome" placeholder="Ex: João Silva" required>
+      </div>
+      <div class="form-group">
+        <label>Telefone</label>
+        <input type="tel" id="f_tel" placeholder="(11) 99999-9999">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Quantidade de Estudas</label>
+        <input type="number" id="f_estudas" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Status *</label>
+        <select id="f_status">
+          <option value="interessado">🟡 Interessado</option>
+          <option value="visitado">🔵 Visitado</option>
+          <option value="agendado">🟣 Visita Agendada</option>
+          <option value="comprou">🟢 Já Comprou</option>
+          <option value="naointeressado">🔴 Não Interessado</option>
+          <option value="retornar">🟠 Retornar</option>
+          <option value="outro">⚪ Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Botões -->
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">✕ Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClient()">💾 Salvar Visita</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Fechar modal ao clicar fora
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+});
+
+function closeModal() {
+  pickingMode = false;
+  if (map) { map.getContainer().style.cursor = ''; }
+  document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
+  document.getElementById('pickingHint').style.display = 'none';
+  const ov = document.getElementById('modalOverlay');
+  ov.classList.remove('open');
+  ov.style.opacity = '0';
+  ov.style.pointerEvents = 'none';
+}
+</script>
 </body>
 </html>
