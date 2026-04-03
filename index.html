@@ -396,13 +396,13 @@
 </div>
 
 <!-- MODAL -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
-  <div class="modal">
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
       <div class="modal-title" id="modalTitle">Nova Visita</div>
-      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.4rem;cursor:pointer;line-height:1;padding:0 0 0 12px;" title="Fechar">✕</button>
+      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.6rem;cursor:pointer;line-height:1;padding:0 0 0 12px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px;" title="Fechar">✕</button>
     </div>
-    <div class="modal-subtitle">Preencha os dados do cliente e clique no mapa para definir a localização.</div>
+    <div class="modal-subtitle">Preencha os dados do cliente e defina a localização.</div>
 
     <div id="pickingHint" class="picking-hint" style="display:none;">
       🗺️ Clique no mapa para marcar a localização do cliente
@@ -438,8 +438,9 @@
       </div>
     </div>
 
+    <!-- BUSCA DE ENDEREÇO COM GEOCODING -->
     <div class="form-group">
-      <label>🔍 Buscar Endereço (preenche localização automaticamente)</label>
+      <label>🔍 Buscar Endereço <span style="color:var(--text3);font-weight:400;">(preenche localização automaticamente)</span></label>
       <div class="field-geo-wrap">
         <input type="text" id="f_geo_search" placeholder="Digite rua, cidade, bairro..."
           autocomplete="off" oninput="onModalGeoInput()" onkeydown="onModalGeoKey(event)">
@@ -448,7 +449,7 @@
     </div>
 
     <div class="form-group">
-      <label>Endereço (preenchido automaticamente ou manual)</label>
+      <label>Endereço</label>
       <input type="text" id="f_endereco" placeholder="Rua, número, bairro...">
     </div>
 
@@ -457,6 +458,7 @@
       <textarea id="f_obs" placeholder="Anotações sobre a visita, próximos passos..."></textarea>
     </div>
 
+    <!-- LINK DE LOCALIZAÇÃO -->
     <div class="form-group">
       <label>🔗 Colar Link de Localização <span style="color:var(--text3);font-weight:400;">(Google Maps, WhatsApp, Waze...)</span></label>
       <div style="display:flex;gap:8px;">
@@ -468,11 +470,17 @@
       <div id="link_loc_feedback" style="margin-top:6px;font-size:0.78rem;min-height:18px;"></div>
     </div>
 
+    <!-- LOCALIZAÇÃO NO MAPA -->
     <div class="form-group">
       <label>📍 Localização no Mapa</label>
-      <button class="btn btn-ghost" onclick="startPicking()" style="width:100%;justify-content:center;">
-        🗺️ Definir localização clicando no mapa
-      </button>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn btn-ghost" onclick="startPicking()" style="flex:1;justify-content:center;">
+          🗺️ Clique no mapa
+        </button>
+        <button class="btn btn-ghost" onclick="geocodeFromAddress()" id="btnGeoAddr" style="flex:1;justify-content:center;border-color:var(--accent);color:var(--accent);">
+          🔍 Buscar pelo endereço
+        </button>
+      </div>
       <div class="loc-preview" id="locPreview">
         <span>Nenhuma localização definida</span>
         <span class="loc-coords" id="locCoords"></span>
@@ -480,7 +488,7 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="closeModal()">✕ Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient()">💾 Salvar Visita</button>
     </div>
   </div>
@@ -693,7 +701,7 @@ function openModal(lat, lng) {
   tempLat = lat || null;
   tempLng = lng || null;
   updateLocPreview();
-  document.getElementById('modalOverlay').classList.add('open');
+  openModalOverlay();
 }
 
 function openModalAtCoord(lat, lng) {
@@ -705,8 +713,25 @@ function closeModal() {
   if (map) { map.getContainer().style.cursor = ''; }
   document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
   document.getElementById('pickingHint').style.display = 'none';
-  document.getElementById('modalOverlay').classList.remove('open');
+  const ov = document.getElementById('modalOverlay');
+  ov.classList.remove('open');
+  ov.style.opacity = '0';
+  ov.style.pointerEvents = 'none';
 }
+
+function openModalOverlay() {
+  const ov = document.getElementById('modalOverlay');
+  ov.classList.add('open');
+  ov.style.opacity = '';
+  ov.style.pointerEvents = '';
+}
+
+// Fecha ao clicar no fundo do overlay (fora do modal)
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+});
 
 function closeModalOutside(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
@@ -724,7 +749,7 @@ function stopPicking() {
   pickingMode = false;
   if (map) { map.getContainer().style.cursor = ''; }
   document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
-  document.getElementById('modalOverlay').classList.add('open');
+  openModalOverlay();
 }
 
 function setCoords(lat, lng) {
@@ -808,7 +833,7 @@ function editClient(id, e) {
   tempLat = c.lat; tempLng = c.lng;
   updateLocPreview();
   document.getElementById('pickingHint').style.display = 'none';
-  document.getElementById('modalOverlay').classList.add('open');
+  openModalOverlay();
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
@@ -873,6 +898,56 @@ function exportData() {
   a.download = `visitapro_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   toast('📤 Dados exportados!', 'success');
+}
+
+// ─── GEOCODE FROM ADDRESS (busca coords pelo endereço preenchido) ─────────────
+async function geocodeFromAddress() {
+  const endereco = document.getElementById('f_endereco').value.trim();
+  const geoSearch = document.getElementById('f_geo_search').value.trim();
+  const query = endereco || geoSearch;
+
+  if (!query) {
+    toast('⚠️ Preencha o endereço antes de buscar.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnGeoAddr');
+  const prev = btn.textContent;
+  btn.textContent = '⏳ Buscando...';
+  btn.disabled = true;
+
+  try {
+    const results = await nominatimSearch(query);
+    btn.textContent = prev;
+    btn.disabled = false;
+
+    if (!results.length) {
+      toast('❌ Endereço não encontrado. Tente ser mais específico.', 'error');
+      return;
+    }
+
+    const r = results[0];
+    const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+    const addr = shortAddress(r);
+
+    setCoords(lat, lng);
+    if (!document.getElementById('f_endereco').value) {
+      document.getElementById('f_endereco').value = addr;
+    }
+    if (map) map.flyTo([lat, lng], 16, { duration: 1 });
+
+    // Se retornou mais de 1 resultado, mostra lista para escolher
+    if (results.length > 1) {
+      document.getElementById('f_geo_search').value = query;
+      onModalGeoInput(); // abre dropdown de sugestões
+    }
+
+    toast(`✅ Localização encontrada: ${addr}`, 'success');
+  } catch(e) {
+    btn.textContent = prev;
+    btn.disabled = false;
+    toast('❌ Erro ao buscar endereço. Verifique sua conexão.', 'error');
+  }
 }
 
 // ─── SALVAR LINK DE LOCALIZAÇÃO ──────────────────────────────────────────────
