@@ -209,6 +209,66 @@
   }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
 
+  /* SUPABASE PANEL */
+  .supabase-panel {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .supabase-panel.open { opacity: 1; pointer-events: all; }
+  .supabase-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; width: 100%; max-width: 500px; padding: 28px;
+    margin: 16px; max-height: 90vh; overflow-y: auto;
+  }
+  .supabase-box::-webkit-scrollbar { width: 4px; }
+  .supabase-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .supabase-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; margin-bottom: 4px; display:flex; justify-content:space-between; align-items:center; }
+  .supabase-sub { color: var(--text2); font-size: 0.82rem; margin-bottom: 20px; }
+  .sync-status {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 16px;
+    border: 1px solid var(--border); background: var(--surface2);
+  }
+  .sync-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sync-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sync-dot.offline { background: var(--text3); }
+  .sync-dot.syncing { background: var(--yellow); animation: pulse-dot 1s infinite; }
+  .sync-dot.error { background: var(--red); }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .db-mode-tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+  .db-tab {
+    flex: 1; padding: 8px; border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border); background: transparent;
+    color: var(--text2); font-size: 0.78rem; cursor: pointer;
+    transition: all 0.2s; text-align: center; min-width: 80px;
+  }
+  .db-tab.active { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+  .sync-btn {
+    width: 100%; padding: 11px; border-radius: var(--radius-sm);
+    border: none; background: var(--green); color: white;
+    font-weight: 600; font-size: 0.9rem; cursor: pointer;
+    margin-top: 8px; transition: background 0.2s;
+  }
+  .sync-btn:hover { background: #20a868; }
+  .sync-btn:disabled { background: var(--surface3); color: var(--text3); cursor: default; }
+  .sync-log {
+    margin-top: 14px; padding: 10px; background: var(--surface2);
+    border-radius: var(--radius-sm); font-size: 0.72rem; font-family: monospace;
+    color: var(--text2); max-height: 130px; overflow-y: auto; line-height: 1.7;
+    border: 1px solid var(--border);
+  }
+  .sync-indicator {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 20px;
+    border: 1px solid var(--border); cursor: pointer;
+    font-size: 0.78rem; color: var(--text2); transition: all 0.2s;
+    background: transparent;
+  }
+  .sync-indicator:hover { background: var(--surface2); }
+  @media (max-width: 700px) { .sync-indicator span.label { display: none; } }
+
   /* TOAST */
   .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
   .toast {
@@ -336,12 +396,29 @@
 
   /* MOBILE */
   @media (max-width: 700px) {
-    .sidebar { width: 100%; min-width: unset; position: fixed; bottom: 0; left: 0; right: 0; z-index: 800; height: 50vh; border-right: none; border-top: 1px solid var(--border); }
+    .sidebar {
+      width: 100%; min-width: unset;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 800; height: 52vh;
+      border-right: none; border-top: 1px solid var(--border);
+    }
     .app { flex-direction: column; height: 100vh; }
-    .map-wrapper { height: 50vh; min-height: 50vh; }
-    #map { height: 50vh !important; min-height: 50vh; }
+    .map-wrapper { height: 48vh; min-height: 48vh; flex-shrink: 0; }
+    #map { height: 48vh !important; min-height: 48vh; }
     .stats-bar { display: none; }
     .form-row { grid-template-columns: 1fr; }
+    /* FAB sempre visível acima da sidebar no mobile */
+    .map-fab {
+      position: fixed !important;
+      bottom: calc(52vh + 12px) !important;
+      right: 14px !important;
+      z-index: 900 !important;
+    }
+    /* Barra de busca mobile menor */
+    .map-search-bar { width: calc(100vw - 120px); left: 8px; transform: none; }
+    /* Header mobile compacto */
+    header { padding: 0 12px; }
+    .btn { padding: 6px 10px; font-size: 0.8rem; }
   }
 </style>
 </head>
@@ -351,6 +428,10 @@
   <div class="logo">Visita<span>PRO</span></div>
   <div class="stats-bar" id="statsBar"></div>
   <div class="header-actions">
+    <button class="sync-indicator" onclick="openSupabasePanel()" id="syncIndicator" title="Configurar banco de dados">
+      <span class="sync-dot offline" id="syncDot"></span>
+      <span class="label" id="syncLabel">Local</span>
+    </button>
     <button class="btn btn-ghost" onclick="exportData()">📤 Exportar</button>
     <button class="btn btn-primary" onclick="openModal()">＋ Nova Visita</button>
   </div>
@@ -378,6 +459,9 @@
 
   <div class="map-wrapper">
     <div id="map" style="width:100%;height:100%;min-height:400px;"></div>
+
+    <!-- INFO BAR -->
+    <div class="map-info" id="mapInfo">Clique no mapa para adicionar uma visita</div>
 
     <!-- BARRA DE BUSCA DE ENDEREÇO NO MAPA -->
     <div class="map-search-bar">
@@ -495,6 +579,103 @@
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- PAINEL SUPABASE / BANCO DE DADOS -->
+<div class="supabase-panel" id="supabasePanel">
+  <div class="supabase-box" onclick="event.stopPropagation()">
+    <div class="supabase-title">
+      🗄️ Banco de Dados
+      <button onclick="closeSupabasePanel()" style="background:transparent;border:none;color:var(--text3);font-size:1.4rem;cursor:pointer;padding:0;">✕</button>
+    </div>
+    <div class="supabase-sub">Configure a sincronização dos dados com o Supabase. Os dados são sempre salvos localmente primeiro.</div>
+
+    <!-- STATUS -->
+    <div class="sync-status" id="syncStatusBar">
+      <span class="sync-dot offline" id="panelSyncDot"></span>
+      <span id="panelSyncText">Modo local — dados salvos no dispositivo</span>
+    </div>
+
+    <!-- MODO DE ARMAZENAMENTO -->
+    <div style="font-size:0.8rem;font-weight:600;color:var(--text2);margin-bottom:8px;">Modo de armazenamento</div>
+    <div class="db-mode-tabs">
+      <button class="db-tab active" id="tab-local" onclick="setDbMode('local')">💾 Local</button>
+      <button class="db-tab" id="tab-supabase" onclick="setDbMode('supabase')">☁️ Supabase</button>
+      <button class="db-tab" id="tab-hybrid" onclick="setDbMode('hybrid')">🔄 Local + Nuvem</button>
+    </div>
+
+    <!-- CREDENCIAIS SUPABASE -->
+    <div id="supabaseCredFields">
+      <div class="form-group">
+        <label>URL do Projeto Supabase</label>
+        <input type="text" id="sb_url" placeholder="https://xxxx.supabase.co"
+          value="" style="font-size:0.82rem;">
+      </div>
+      <div class="form-group">
+        <label>Chave Anon (anon key)</label>
+        <input type="password" id="sb_key" placeholder="eyJhbGci..."
+          style="font-size:0.82rem;">
+        <div style="font-size:0.72rem;color:var(--text3);margin-top:4px;">
+          Encontre em: Supabase → Settings → API → Project API keys
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="testSupabaseConn()" style="width:100%;justify-content:center;margin-bottom:8px;">
+        🔌 Testar conexão
+      </button>
+    </div>
+
+    <!-- AÇÕES DE SYNC -->
+    <div id="syncActions" style="display:none;">
+      <button class="sync-btn" onclick="syncToSupabase()" id="btnSyncUp">
+        ☁️ Enviar dados locais → Supabase
+      </button>
+      <button class="sync-btn" onclick="syncFromSupabase()" id="btnSyncDown"
+        style="background:var(--accent);margin-top:6px;">
+        📥 Receber dados Supabase → Local
+      </button>
+    </div>
+
+    <!-- LOG -->
+    <div class="sync-log" id="syncLog">[ VisitaPRO ] Aguardando configuração...</div>
+
+    <!-- INSTRUÇÕES SQL -->
+    <div style="margin-top:16px;">
+      <div style="font-size:0.8rem;font-weight:600;color:var(--text2);margin-bottom:6px;">📋 SQL para criar tabela no Supabase</div>
+      <div style="position:relative;">
+        <pre id="sqlSnippet" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:0.7rem;color:var(--text2);overflow-x:auto;white-space:pre-wrap;margin:0;">CREATE TABLE IF NOT EXISTS visitapro_clients (
+  id TEXT PRIMARY KEY,
+  nome TEXT NOT NULL,
+  tel TEXT,
+  estudas TEXT,
+  status TEXT DEFAULT 'interessado',
+  endereco TEXT,
+  obs TEXT,
+  maps_link TEXT,
+  lat DOUBLE PRECISION,
+  lng DOUBLE PRECISION,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  user_id TEXT
+);
+
+-- Habilitar RLS
+ALTER TABLE visitapro_clients ENABLE ROW LEVEL SECURITY;
+
+-- Política: todos podem ler/gravar (ajuste conforme necessário)
+CREATE POLICY "allow_all" ON visitapro_clients
+  FOR ALL USING (true) WITH CHECK (true);</pre>
+        <button onclick="copySql()" style="position:absolute;top:6px;right:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:0.72rem;color:var(--text2);cursor:pointer;">📋 Copiar</button>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);font-size:0.75rem;color:var(--text3);">
+      <b style="color:var(--text2);">📱 Sobre armazenamento por plataforma:</b><br>
+      • <b>Navegador (PWA):</b> localStorage + sync Supabase<br>
+      • <b>Android nativo:</b> SQLite via WebView + sync Supabase<br>
+      • <b>iOS nativo:</b> SQLite/CoreData via WKWebView + sync Supabase<br>
+      • <b>Windows/Desktop:</b> localStorage + sync Supabase<br>
+      Todos os modos salvam <b>localmente primeiro</b> e sincronizam quando há internet.
+    </div>
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -710,10 +891,13 @@ function openModalAtCoord(lat, lng) {
 
 function closeModal() {
   pickingMode = false;
-  if (map) { map.getContainer().style.cursor = ''; }
-  document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
-  document.getElementById('pickingHint').style.display = 'none';
+  try { if (map) map.getContainer().style.cursor = ''; } catch(e) {}
+  const mi = document.getElementById('mapInfo');
+  if (mi) mi.textContent = 'Clique no mapa para adicionar uma visita';
+  const ph = document.getElementById('pickingHint');
+  if (ph) ph.style.display = 'none';
   const ov = document.getElementById('modalOverlay');
+  if (!ov) return;
   ov.classList.remove('open');
   ov.style.opacity = '0';
   ov.style.pointerEvents = 'none';
@@ -721,6 +905,7 @@ function closeModal() {
 
 function openModalOverlay() {
   const ov = document.getElementById('modalOverlay');
+  if (!ov) return;
   ov.classList.add('open');
   ov.style.opacity = '';
   ov.style.pointerEvents = '';
@@ -728,9 +913,15 @@ function openModalOverlay() {
 
 // Fecha ao clicar no fundo do overlay (fora do modal)
 document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  const ov = document.getElementById('modalOverlay');
+  if (ov) ov.addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
+  const sp = document.getElementById('supabasePanel');
+  if (sp) sp.addEventListener('click', function(e) {
+    if (e.target === this) closeSupabasePanel();
+  });
+  loadDbConfig();
 });
 
 function closeModalOutside(e) {
@@ -738,17 +929,21 @@ function closeModalOutside(e) {
 }
 
 function startPicking() {
-  document.getElementById('pickingHint').style.display = 'block';
-  document.getElementById('modalOverlay').classList.remove('open');
+  const ph = document.getElementById('pickingHint');
+  if (ph) ph.style.display = 'block';
+  const ov = document.getElementById('modalOverlay');
+  if (ov) { ov.classList.remove('open'); ov.style.opacity = '0'; ov.style.pointerEvents = 'none'; }
   pickingMode = true;
-  document.getElementById('mapInfo').textContent = '📍 Clique no mapa para definir a localização';
-  map.getContainer().style.cursor = 'crosshair';
+  const mi = document.getElementById('mapInfo');
+  if (mi) mi.textContent = '📍 Clique no mapa para definir a localização';
+  try { if (map) map.getContainer().style.cursor = 'crosshair'; } catch(e) {}
 }
 
 function stopPicking() {
   pickingMode = false;
-  if (map) { map.getContainer().style.cursor = ''; }
-  document.getElementById('mapInfo').textContent = 'Clique no mapa para adicionar uma visita';
+  try { if (map) map.getContainer().style.cursor = ''; } catch(e) {}
+  const mi = document.getElementById('mapInfo');
+  if (mi) mi.textContent = 'Clique no mapa para adicionar uma visita';
   openModalOverlay();
 }
 
@@ -798,6 +993,7 @@ function saveClient() {
   }
 
   save();
+  autoSync();
   closeModal();
   renderList();
   renderMarkers();
@@ -872,14 +1068,273 @@ function copyLink(id, e) {
   });
 }
 
-// ─── LOCATE ME ────────────────────────────────────────────────────────────────
+// ─── LOCATE ME (otimizado para mobile) ───────────────────────────────────────
 function locateMe() {
-  if (!navigator.geolocation) { toast('Geolocalização não suportada.', 'error'); return; }
+  if (!navigator.geolocation) {
+    toast('⚠️ Geolocalização não disponível neste dispositivo.', 'error');
+    return;
+  }
+  const btn = document.querySelector('.fab-btn.locate');
+  if (btn) { btn.textContent = '⏳'; btn.style.opacity = '0.7'; }
   toast('📍 Obtendo localização...', 'info');
-  navigator.geolocation.getCurrentPosition(pos => {
-    map.flyTo([pos.coords.latitude, pos.coords.longitude], 16);
-    toast('📍 Localização encontrada!', 'success');
-  }, () => toast('Não foi possível obter a localização.', 'error'));
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
+      if (btn) { btn.textContent = '📍'; btn.style.opacity = '1'; }
+      map.flyTo([lat, lng], 16, { duration: 1.2 });
+      // Mostra círculo de precisão
+      if (window._myLocCircle) map.removeLayer(window._myLocCircle);
+      if (window._myLocDot)    map.removeLayer(window._myLocDot);
+      window._myLocDot = L.circleMarker([lat, lng], {
+        radius: 10, color: '#fff', weight: 2,
+        fillColor: '#4f8ef7', fillOpacity: 1,
+        className: 'live-dot'
+      }).addTo(map);
+      if (acc > 5) {
+        window._myLocCircle = L.circle([lat, lng], {
+          radius: acc, color: '#4f8ef7',
+          fillColor: '#4f8ef7', fillOpacity: 0.08, weight: 1
+        }).addTo(map);
+      }
+      toast(`📍 Localização encontrada! (±${Math.round(acc)}m)`, 'success');
+    },
+    err => {
+      if (btn) { btn.textContent = '📍'; btn.style.opacity = '1'; }
+      const msgs = {
+        1: 'Permissão de localização negada. Verifique as configurações do navegador.',
+        2: 'Localização indisponível. Tente ao ar livre.',
+        3: 'Tempo esgotado. Tente novamente.'
+      };
+      toast('❌ ' + (msgs[err.code] || 'Erro de localização.'), 'error');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+// ─── SUPABASE / BANCO DE DADOS ────────────────────────────────────────────────
+const DB_KEY      = 'visitapro_db_config';
+let dbMode        = 'local';    // 'local' | 'supabase' | 'hybrid'
+let sbUrl         = '';
+let sbKey         = '';
+let sbConnected   = false;
+let syncLogs      = [];
+
+function loadDbConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem(DB_KEY) || '{}');
+    dbMode = cfg.mode || 'local';
+    sbUrl  = cfg.url  || '';
+    sbKey  = cfg.key  || '';
+    if (sbUrl) document.getElementById('sb_url').value = sbUrl;
+    if (sbKey) document.getElementById('sb_key').value = sbKey;
+    setDbMode(dbMode, false);
+  } catch(e) {}
+}
+
+function saveDbConfig() {
+  localStorage.setItem(DB_KEY, JSON.stringify({ mode: dbMode, url: sbUrl, key: sbKey }));
+}
+
+function setDbMode(mode, persist = true) {
+  dbMode = mode;
+  ['local','supabase','hybrid'].forEach(m => {
+    const el = document.getElementById('tab-' + m);
+    if (el) el.classList.toggle('active', m === mode);
+  });
+  const credFields  = document.getElementById('supabaseCredFields');
+  const syncActions = document.getElementById('syncActions');
+  if (mode === 'local') {
+    credFields.style.display  = 'none';
+    syncActions.style.display = 'none';
+    updateSyncIndicator('offline', 'Local');
+  } else {
+    credFields.style.display  = 'block';
+    syncActions.style.display = sbConnected ? 'block' : 'none';
+    if (sbConnected) updateSyncIndicator('online', 'Supabase');
+  }
+  if (persist) saveDbConfig();
+}
+
+function openSupabasePanel() {
+  loadDbConfig();
+  document.getElementById('supabasePanel').classList.add('open');
+}
+
+function closeSupabasePanel() {
+  document.getElementById('supabasePanel').classList.remove('open');
+}
+
+function addSyncLog(msg) {
+  const now  = new Date().toLocaleTimeString('pt-BR');
+  syncLogs.push(`[${now}] ${msg}`);
+  if (syncLogs.length > 50) syncLogs.shift();
+  const el = document.getElementById('syncLog');
+  if (el) { el.textContent = syncLogs.join('\n'); el.scrollTop = el.scrollHeight; }
+}
+
+function updateSyncIndicator(state, label) {
+  const dot   = document.getElementById('syncDot');
+  const lbl   = document.getElementById('syncLabel');
+  const pdot  = document.getElementById('panelSyncDot');
+  const ptxt  = document.getElementById('panelSyncText');
+  [dot, pdot].forEach(d => {
+    if (!d) return;
+    d.className = 'sync-dot ' + state;
+  });
+  if (lbl)  lbl.textContent = label;
+  if (ptxt) {
+    const msgs = {
+      online:  '✅ Conectado ao Supabase — sincronização ativa',
+      offline: '💾 Modo local — dados salvos no dispositivo',
+      syncing: '🔄 Sincronizando...',
+      error:   '❌ Erro de conexão com Supabase',
+    };
+    ptxt.textContent = msgs[state] || label;
+  }
+}
+
+async function testSupabaseConn() {
+  sbUrl = document.getElementById('sb_url').value.trim().replace(/\/$/, '');
+  sbKey = document.getElementById('sb_key').value.trim();
+  if (!sbUrl || !sbKey) {
+    toast('⚠️ Preencha a URL e a chave do Supabase.', 'error');
+    return;
+  }
+  addSyncLog('🔌 Testando conexão com Supabase...');
+  updateSyncIndicator('syncing', 'Conectando');
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/visitapro_clients?limit=1`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (res.ok || res.status === 406) {
+      sbConnected = true;
+      saveDbConfig();
+      addSyncLog('✅ Conexão estabelecida com sucesso!');
+      updateSyncIndicator('online', 'Supabase');
+      document.getElementById('syncActions').style.display = 'block';
+      toast('✅ Supabase conectado!', 'success');
+    } else {
+      const err = await res.text();
+      addSyncLog(`❌ Erro ${res.status}: ${err.substring(0, 80)}`);
+      updateSyncIndicator('error', 'Erro');
+      toast(`❌ Erro ${res.status} — verifique as credenciais.`, 'error');
+    }
+  } catch(e) {
+    addSyncLog('❌ Falha de rede: ' + e.message);
+    updateSyncIndicator('error', 'Offline');
+    toast('❌ Sem conexão com o Supabase. Verifique a internet.', 'error');
+  }
+}
+
+async function syncToSupabase() {
+  if (!sbConnected) { toast('⚠️ Conecte ao Supabase primeiro.', 'error'); return; }
+  const btn = document.getElementById('btnSyncUp');
+  btn.disabled = true; btn.textContent = '⏳ Enviando...';
+  updateSyncIndicator('syncing', 'Enviando');
+  addSyncLog(`☁️ Enviando ${clients.length} cliente(s) para o Supabase...`);
+
+  const rows = clients.map(c => ({
+    id:         c.id,
+    nome:       c.nome,
+    tel:        c.tel || '',
+    estudas:    c.estudas || '',
+    status:     c.status,
+    endereco:   c.endereco || '',
+    obs:        c.obs || '',
+    maps_link:  c.mapsLink || '',
+    lat:        c.lat || null,
+    lng:        c.lng || null,
+    updated_at: c.updatedAt || new Date().toISOString(),
+  }));
+
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/visitapro_clients`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(rows)
+    });
+    if (res.ok || res.status === 201) {
+      addSyncLog(`✅ ${rows.length} registro(s) enviado(s) com sucesso!`);
+      updateSyncIndicator('online', 'Supabase');
+      toast(`✅ ${rows.length} clientes enviados ao Supabase!`, 'success');
+    } else {
+      const err = await res.text();
+      addSyncLog(`❌ Erro no envio: ${err.substring(0, 100)}`);
+      updateSyncIndicator('error', 'Erro');
+      toast('❌ Erro ao enviar dados. Veja o log.', 'error');
+    }
+  } catch(e) {
+    addSyncLog('❌ Falha: ' + e.message);
+    updateSyncIndicator('error', 'Offline');
+    toast('❌ Falha de conexão.', 'error');
+  }
+  btn.disabled = false; btn.textContent = '☁️ Enviar dados locais → Supabase';
+}
+
+async function syncFromSupabase() {
+  if (!sbConnected) { toast('⚠️ Conecte ao Supabase primeiro.', 'error'); return; }
+  const btn = document.getElementById('btnSyncDown');
+  btn.disabled = true; btn.textContent = '⏳ Recebendo...';
+  updateSyncIndicator('syncing', 'Recebendo');
+  addSyncLog('📥 Buscando dados do Supabase...');
+
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/visitapro_clients?order=updated_at.desc`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      // Merge: dados do Supabase sobrepõem local se updated_at for mais recente
+      rows.forEach(r => {
+        const existing = clients.find(c => c.id === r.id);
+        const remote   = { ...r, mapsLink: r.maps_link };
+        if (!existing) {
+          clients.push(remote);
+        } else {
+          const localDate  = new Date(existing.updatedAt || 0);
+          const remoteDate = new Date(r.updated_at || 0);
+          if (remoteDate > localDate) {
+            const idx = clients.findIndex(c => c.id === r.id);
+            clients[idx] = remote;
+          }
+        }
+      });
+      save();
+      renderList();
+      renderMarkers();
+      addSyncLog(`✅ ${rows.length} registro(s) recebido(s) e mesclados!`);
+      updateSyncIndicator('online', 'Supabase');
+      toast(`✅ ${rows.length} clientes sincronizados do Supabase!`, 'success');
+    } else {
+      const err = await res.text();
+      addSyncLog(`❌ Erro: ${err.substring(0, 100)}`);
+      updateSyncIndicator('error', 'Erro');
+    }
+  } catch(e) {
+    addSyncLog('❌ Falha: ' + e.message);
+    updateSyncIndicator('error', 'Offline');
+    toast('❌ Falha de conexão.', 'error');
+  }
+  btn.disabled = false; btn.textContent = '📥 Receber dados Supabase → Local';
+}
+
+// Auto-sync ao salvar cliente (se modo hybrid e conectado)
+function autoSync() {
+  if ((dbMode === 'hybrid' || dbMode === 'supabase') && sbConnected) {
+    setTimeout(syncToSupabase, 1000);
+  }
+}
+
+function copySql() {
+  const sql = document.getElementById('sqlSnippet').textContent;
+  navigator.clipboard.writeText(sql)
+    .then(() => toast('📋 SQL copiado!', 'success'))
+    .catch(() => toast('Selecione e copie o texto manualmente.', 'info'));
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
