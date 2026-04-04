@@ -177,12 +177,52 @@
   .modal {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 16px; width: 100%; max-width: 520px; max-height: 90vh;
-    overflow-y: auto; padding: 28px;
+    overflow: hidden; padding: 0;
     transform: translateY(20px); transition: transform 0.3s;
+    display: flex; flex-direction: column;
   }
   .modal-overlay.open .modal { transform: translateY(0); }
-  .modal::-webkit-scrollbar { width: 4px; }
-  .modal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  /* Cabeçalho fixo do modal */
+  .modal-header { padding: 22px 28px 0 28px; flex-shrink: 0; }
+  /* Abas de navegação de seções */
+  .form-tabs {
+    display: flex; gap: 2px; padding: 10px 28px 0;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    background: var(--surface); overflow-x: auto;
+  }
+  .form-tabs::-webkit-scrollbar { height: 0; }
+  .form-tab {
+    padding: 7px 13px; border-radius: 8px 8px 0 0;
+    font-size: 0.76rem; font-weight: 600; white-space: nowrap;
+    border: 1px solid transparent; border-bottom: none;
+    cursor: pointer; color: var(--text2);
+    background: transparent; transition: all 0.18s;
+  }
+  .form-tab:hover { color: var(--text); background: var(--surface2); }
+  .form-tab.active {
+    color: var(--accent); background: var(--surface2);
+    border-color: var(--border); margin-bottom: -1px; padding-bottom: 8px;
+  }
+  /* Corpo rolável do modal com scrollbar visível */
+  .modal-body {
+    flex: 1; overflow-y: auto; padding: 20px 28px 28px;
+    scroll-behavior: smooth;
+  }
+  .modal-body::-webkit-scrollbar { width: 6px; }
+  .modal-body::-webkit-scrollbar-track { background: var(--surface2); border-radius: 4px; }
+  .modal-body::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+  .modal-body::-webkit-scrollbar-thumb:hover { background: #7ab0ff; }
+  .modal-body { scrollbar-width: thin; scrollbar-color: var(--accent) var(--surface2); }
+  /* Seções do formulário */
+  .form-section { display: none; }
+  .form-section.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  .form-section-title {
+    font-size: 0.72rem; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin: 0 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
   .modal-title {
     font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800;
     margin-bottom: 6px;
@@ -497,6 +537,58 @@
   }
   .pwa-dismiss { background: transparent; border: none; color: var(--text3); cursor: pointer; font-size: 1.2rem; padding: 4px; }
 
+  /* ── PAINEL CONTROLE DE KM ─────────────────────────────────────── */
+  .km-panel {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .km-panel.open { opacity: 1; pointer-events: all; }
+  .km-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; width: 100%; max-width: 480px;
+    max-height: 92vh; overflow-y: auto; padding: 28px;
+    margin: 16px;
+  }
+  .km-box::-webkit-scrollbar { width: 6px; }
+  .km-box::-webkit-scrollbar-track { background: var(--surface2); border-radius: 4px; }
+  .km-box::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+  .km-box { scrollbar-width: thin; scrollbar-color: var(--accent) var(--surface2); }
+  .km-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; margin-bottom: 4px; display:flex; justify-content:space-between; align-items:center; }
+  .km-sub { color: var(--text2); font-size: 0.82rem; margin-bottom: 20px; }
+  .km-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+  }
+  .km-card-title { font-size: 0.72rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+  .km-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .km-field label { display: block; font-size: 0.78rem; color: var(--text2); font-weight: 500; margin-bottom: 5px; }
+  .km-field input, .km-field select { width: 100%; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+  .km-field input:focus, .km-field select:focus { border-color: var(--accent); }
+  .km-result {
+    background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,92,191,0.12));
+    border: 1px solid var(--accent); border-radius: 12px;
+    padding: 16px; margin-bottom: 12px; display: none;
+  }
+  .km-result.show { display: block; }
+  .km-result-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .km-result-row:last-child { border-bottom: none; padding-top: 10px; }
+  .km-result-label { font-size: 0.82rem; color: var(--text2); }
+  .km-result-val { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+  .km-result-val.highlight { color: var(--accent); font-size: 1.05rem; }
+  .km-history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 6px; font-size: 0.82rem;
+  }
+  .km-history-date { color: var(--text3); font-size: 0.75rem; }
+  .km-history-km { font-weight: 700; color: var(--accent); }
+  .km-empty { text-align: center; color: var(--text3); padding: 20px; font-size: 0.85rem; }
+  .km-badge {
+    background: var(--accent); color: white; border-radius: 20px;
+    padding: 2px 8px; font-size: 0.7rem; font-weight: 700; margin-left: 6px;
+  }
 </style>
 </head>
 <body>
@@ -534,6 +626,109 @@
   <button class="pwa-dismiss" onclick="dismissPWA()" title="Fechar">✕</button>
 </div>
 
+<!-- PAINEL CONTROLE DE KM -->
+<div class="km-panel" id="kmPanel" onclick="if(event.target===this)closeKmPanel()">
+  <div class="km-box" onclick="event.stopPropagation()">
+    <div class="km-title">
+      🚗 Controle de KM
+      <button onclick="closeKmPanel()" style="background:transparent;border:none;color:var(--text3);font-size:1.4rem;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div class="km-sub">Registre a quilometragem percorrida e o custo de combustível por saída.</div>
+
+    <!-- FORMULÁRIO DE NOVO REGISTRO -->
+    <div class="km-card">
+      <div class="km-card-title">📋 Novo Registro</div>
+      <div class="km-row" style="margin-bottom:10px;">
+        <div class="km-field">
+          <label>Data da Saída</label>
+          <input type="date" id="km_data">
+        </div>
+        <div class="km-field">
+          <label>Veículo / Descrição</label>
+          <input type="text" id="km_veiculo" placeholder="Ex: Carro, Moto...">
+        </div>
+      </div>
+      <div class="km-row" style="margin-bottom:10px;">
+        <div class="km-field">
+          <label>Hodômetro Inicial (km)</label>
+          <input type="number" id="km_ini" placeholder="Ex: 45200" min="0" oninput="calcKm()">
+        </div>
+        <div class="km-field">
+          <label>Hodômetro Final (km)</label>
+          <input type="number" id="km_fim" placeholder="Ex: 45350" min="0" oninput="calcKm()">
+        </div>
+      </div>
+      <div class="km-row" style="margin-bottom:10px;">
+        <div class="km-field">
+          <label>Valor do Combustível (R$)</label>
+          <input type="number" id="km_combustivel" placeholder="0,00" min="0" step="0.01" oninput="calcKm()">
+        </div>
+        <div class="km-field">
+          <label>Consumo médio (km/l)</label>
+          <input type="number" id="km_consumo" placeholder="Ex: 12" min="0" step="0.1" oninput="calcKm()">
+        </div>
+      </div>
+      <div class="km-field" style="margin-bottom:10px;">
+        <label>Observação</label>
+        <input type="text" id="km_obs" placeholder="Rota, motivo, região visitada...">
+      </div>
+
+      <!-- RESULTADO DO CÁLCULO -->
+      <div class="km-result" id="kmResult">
+        <div class="km-result-row">
+          <span class="km-result-label">📏 KM Percorridos</span>
+          <span class="km-result-val highlight" id="kr_percorrido">—</span>
+        </div>
+        <div class="km-result-row">
+          <span class="km-result-label">⛽ Combustível gasto (estimado)</span>
+          <span class="km-result-val" id="kr_litros">—</span>
+        </div>
+        <div class="km-result-row">
+          <span class="km-result-label">💰 Custo total</span>
+          <span class="km-result-val" id="kr_custo">—</span>
+        </div>
+        <div class="km-result-row">
+          <span class="km-result-label">🏷️ Custo por km</span>
+          <span class="km-result-val" id="kr_por_km">—</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="salvarKm()" style="width:100%;justify-content:center;margin-top:4px;">
+        💾 Salvar Registro
+      </button>
+    </div>
+
+    <!-- RESUMO DO MÊS -->
+    <div class="km-card" id="kmResumo" style="display:none;">
+      <div class="km-card-title">📊 Resumo do Mês Atual</div>
+      <div class="km-result show" style="margin-bottom:0;">
+        <div class="km-result-row">
+          <span class="km-result-label">Total KM</span>
+          <span class="km-result-val highlight" id="resumo_km">—</span>
+        </div>
+        <div class="km-result-row">
+          <span class="km-result-label">Total Combustível</span>
+          <span class="km-result-val" id="resumo_comb">—</span>
+        </div>
+        <div class="km-result-row">
+          <span class="km-result-label">Registros</span>
+          <span class="km-result-val" id="resumo_reg">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="km-card">
+      <div class="km-card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>🗂️ Histórico</span>
+        <button onclick="limparHistoricoKm()" style="background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:2px 8px;font-size:0.72rem;cursor:pointer;">🗑️ Limpar tudo</button>
+      </div>
+      <div id="kmHistorico"><div class="km-empty">Nenhum registro ainda.</div></div>
+    </div>
+  </div>
+</div>
+
+
 <header>
   <div class="logo">Visita<span>PRO</span></div>
   <div class="stats-bar" id="statsBar"></div>
@@ -542,6 +737,7 @@
       <span class="sync-dot offline" id="syncDot"></span>
       <span class="label" id="syncLabel">Local</span>
     </button>
+    <button class="btn btn-ghost" onclick="openKmPanel()" title="Controle de KM" style="border-color:var(--green);color:var(--green);">🚗 <span class="btn-export-text">KM</span></button>
     <button class="btn btn-ghost" onclick="exportData()">📤 <span class="btn-export-text">Exportar</span></button>
     <button class="btn btn-primary" onclick="openModal()">＋ <span class="btn-export-text">Nova Visita</span></button>
     <button class="btn btn-ghost" onclick="doLogout()" title="Sair" style="border-color:var(--red);color:var(--red);padding:5px 8px;">
@@ -596,104 +792,125 @@
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal" onclick="event.stopPropagation()">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
-      <div class="modal-title" id="modalTitle">Nova Visita</div>
-      <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.6rem;cursor:pointer;line-height:1;padding:0 0 0 12px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px;" title="Fechar">✕</button>
-    </div>
-    <div class="modal-subtitle">Preencha os dados do cliente e defina a localização.</div>
 
-    <div id="pickingHint" class="picking-hint" style="display:none;">
-      🗺️ Clique no mapa para marcar a localização do cliente
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label>Nome do Cliente *</label>
-        <input type="text" id="f_nome" placeholder="Ex: João Silva" required>
+    <!-- CABEÇALHO FIXO -->
+    <div class="modal-header">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div class="modal-title" id="modalTitle">Nova Visita</div>
+        <button onclick="closeModal()" style="background:transparent;border:none;color:var(--text3);font-size:1.6rem;cursor:pointer;line-height:1;padding:0 0 0 12px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:6px;" title="Fechar">✕</button>
       </div>
-      <div class="form-group">
-        <label>Telefone</label>
-        <input type="tel" id="f_tel" placeholder="(11) 99999-9999">
+      <div class="modal-subtitle">Preencha os dados do cliente e defina a localização.</div>
+      <div id="pickingHint" class="picking-hint" style="display:none;margin-bottom:10px;">
+        🗺️ Clique no mapa para marcar a localização do cliente
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label>Quantidade de Estudas</label>
-        <input type="number" id="f_estudas" placeholder="0" min="0">
+    <!-- ABAS DE NAVEGAÇÃO -->
+    <div class="form-tabs">
+      <button class="form-tab active" onclick="switchFormTab('tab-dados',this)">👤 Dados</button>
+      <button class="form-tab" onclick="switchFormTab('tab-localizacao',this)">📍 Localização</button>
+      <button class="form-tab" onclick="switchFormTab('tab-obs',this)">📝 Observações</button>
+    </div>
+
+    <!-- CORPO ROLÁVEL -->
+    <div class="modal-body">
+
+      <!-- SEÇÃO 1: DADOS DO CLIENTE -->
+      <div class="form-section active" id="tab-dados">
+        <p class="form-section-title">Informações do cliente</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome do Cliente *</label>
+            <input type="text" id="f_nome" placeholder="Ex: João Silva" required>
+          </div>
+          <div class="form-group">
+            <label>Telefone</label>
+            <input type="tel" id="f_tel" placeholder="(11) 99999-9999">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantidade de Estudas</label>
+            <input type="number" id="f_estudas" placeholder="0" min="0">
+          </div>
+          <div class="form-group">
+            <label>Status *</label>
+            <select id="f_status">
+              <option value="interessado">🟡 Interessado</option>
+              <option value="visitado">🔵 Visitado</option>
+              <option value="agendado">🟣 Visita Agendada</option>
+              <option value="comprou">🟢 Já Comprou</option>
+              <option value="naointeressado">🔴 Não Interessado</option>
+              <option value="retornar">🟠 Retornar</option>
+              <option value="outro">⚪ Outro</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>👤 Indicado por</label>
+          <input type="text" id="f_indicado" placeholder="Nome de quem indicou o cliente">
+        </div>
       </div>
-      <div class="form-group">
-        <label>Status *</label>
-        <select id="f_status">
-          <option value="interessado">🟡 Interessado</option>
-          <option value="visitado">🔵 Visitado</option>
-          <option value="agendado">🟣 Visita Agendada</option>
-          <option value="comprou">🟢 Já Comprou</option>
-          <option value="naointeressado">🔴 Não Interessado</option>
-          <option value="retornar">🟠 Retornar</option>
-          <option value="outro">⚪ Outro</option>
-        </select>
+
+      <!-- SEÇÃO 2: LOCALIZAÇÃO -->
+      <div class="form-section" id="tab-localizacao">
+        <p class="form-section-title">Localização do cliente</p>
+        <div class="form-group">
+          <label>🔍 Buscar Endereço <span style="color:var(--text3);font-weight:400;">(preenche automaticamente)</span></label>
+          <div class="field-geo-wrap">
+            <input type="text" id="f_geo_search" placeholder="Digite rua, cidade, bairro..."
+              autocomplete="off" oninput="onModalGeoInput()" onkeydown="onModalGeoKey(event)">
+            <div class="field-geo-suggestions" id="modalGeoSugg"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Endereço</label>
+          <input type="text" id="f_endereco" placeholder="Rua, número, bairro...">
+        </div>
+        <div class="form-group">
+          <label>🔗 Colar Link de Localização <span style="color:var(--text3);font-weight:400;">(Google Maps, WhatsApp, Waze...)</span></label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="f_link_loc"
+              placeholder="https://maps.app.goo.gl/... ou cole coordenadas"
+              style="flex:1;">
+            <button class="btn btn-primary" onclick="saveMapsLink()" style="flex-shrink:0;white-space:nowrap;padding:0 14px;">🔗 Salvar</button>
+          </div>
+          <div id="link_loc_feedback" style="margin-top:6px;font-size:0.78rem;min-height:18px;"></div>
+        </div>
+        <div class="form-group">
+          <label>📍 Definir no Mapa</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <button class="btn btn-ghost" onclick="startPicking()" style="flex:1;justify-content:center;">
+              🗺️ Clique no mapa
+            </button>
+            <button class="btn btn-ghost" onclick="geocodeFromAddress()" id="btnGeoAddr" style="flex:1;justify-content:center;border-color:var(--accent);color:var(--accent);">
+              🔍 Buscar pelo endereço
+            </button>
+          </div>
+          <div class="loc-preview" id="locPreview">
+            <span>Nenhuma localização definida</span>
+            <span class="loc-coords" id="locCoords"></span>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- BUSCA DE ENDEREÇO COM GEOCODING -->
-    <div class="form-group">
-      <label>🔍 Buscar Endereço <span style="color:var(--text3);font-weight:400;">(preenche localização automaticamente)</span></label>
-      <div class="field-geo-wrap">
-        <input type="text" id="f_geo_search" placeholder="Digite rua, cidade, bairro..."
-          autocomplete="off" oninput="onModalGeoInput()" onkeydown="onModalGeoKey(event)">
-        <div class="field-geo-suggestions" id="modalGeoSugg"></div>
+      <!-- SEÇÃO 3: OBSERVAÇÕES -->
+      <div class="form-section" id="tab-obs">
+        <p class="form-section-title">Anotações da visita</p>
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="f_obs" placeholder="Anotações sobre a visita, próximos passos..." style="min-height:160px;"></textarea>
+        </div>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label>Endereço</label>
-      <input type="text" id="f_endereco" placeholder="Rua, número, bairro...">
-    </div>
+    </div><!-- /modal-body -->
 
-    <div class="form-group">
-      <label>👤 Indicado por</label>
-      <input type="text" id="f_indicado" placeholder="Nome de quem indicou o cliente">
-    </div>
-
-    <div class="form-group">
-      <label>Observações</label>
-      <textarea id="f_obs" placeholder="Anotações sobre a visita, próximos passos..."></textarea>
-    </div>
-
-    <!-- LINK DE LOCALIZAÇÃO -->
-    <div class="form-group">
-      <label>🔗 Colar Link de Localização <span style="color:var(--text3);font-weight:400;">(Google Maps, WhatsApp, Waze...)</span></label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="f_link_loc"
-          placeholder="https://maps.app.goo.gl/... ou cole coordenadas"
-          style="flex:1;">
-        <button class="btn btn-primary" onclick="saveMapsLink()" style="flex-shrink:0;white-space:nowrap;padding:0 14px;">🔗 Salvar</button>
-      </div>
-      <div id="link_loc_feedback" style="margin-top:6px;font-size:0.78rem;min-height:18px;"></div>
-    </div>
-
-    <!-- LOCALIZAÇÃO NO MAPA -->
-    <div class="form-group">
-      <label>📍 Localização no Mapa</label>
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn btn-ghost" onclick="startPicking()" style="flex:1;justify-content:center;">
-          🗺️ Clique no mapa
-        </button>
-        <button class="btn btn-ghost" onclick="geocodeFromAddress()" id="btnGeoAddr" style="flex:1;justify-content:center;border-color:var(--accent);color:var(--accent);">
-          🔍 Buscar pelo endereço
-        </button>
-      </div>
-      <div class="loc-preview" id="locPreview">
-        <span>Nenhuma localização definida</span>
-        <span class="loc-coords" id="locCoords"></span>
-      </div>
-    </div>
-
-    <div class="modal-actions">
+    <!-- RODAPÉ FIXO COM AÇÕES -->
+    <div class="modal-actions" style="padding:14px 28px;border-top:1px solid var(--border);flex-shrink:0;margin:0;">
       <button class="btn btn-ghost" onclick="closeModal()">✕ Cancelar</button>
       <button class="btn btn-primary" onclick="saveClient()">💾 Salvar Visita</button>
     </div>
+
   </div>
 </div>
 
@@ -1012,6 +1229,26 @@ function openModalAtCoord(lat, lng) {
   openModal(lat, lng);
 }
 
+function switchFormTab(tabId, btn) {
+  // Desativar todas as seções e abas
+  document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  // Ativar a selecionada
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+function openModalOnTab(tabId) {
+  // Usado ao editar cliente — abre na aba correta
+  document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  const sec = document.getElementById(tabId);
+  if (sec) sec.classList.add('active');
+  const idx = ['tab-dados','tab-localizacao','tab-obs'].indexOf(tabId);
+  const tabs = document.querySelectorAll('.form-tab');
+  if (tabs[idx]) tabs[idx].classList.add('active');
+}
+
 function closeModal() {
   pickingMode = false;
   try { if (map) map.getContainer().style.cursor = ''; } catch(e) {}
@@ -1235,6 +1472,154 @@ function locateMe() {
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
+}
+
+
+// ─── CONTROLE DE KM ──────────────────────────────────────────────────────────
+
+const KM_KEY = 'visitapro_km_registros';
+
+function kmGetRegistros() {
+  try { return JSON.parse(localStorage.getItem(KM_KEY) || '[]'); } catch { return []; }
+}
+function kmSaveRegistros(arr) {
+  localStorage.setItem(KM_KEY, JSON.stringify(arr));
+}
+
+function openKmPanel() {
+  // Preencher data de hoje por padrão
+  const hoje = new Date().toISOString().split('T')[0];
+  const el = document.getElementById('km_data');
+  if (el && !el.value) el.value = hoje;
+  renderKmHistorico();
+  renderKmResumo();
+  document.getElementById('kmPanel').classList.add('open');
+}
+
+function closeKmPanel() {
+  document.getElementById('kmPanel').classList.remove('open');
+}
+
+function calcKm() {
+  const ini  = parseFloat(document.getElementById('km_ini').value) || 0;
+  const fim  = parseFloat(document.getElementById('km_fim').value) || 0;
+  const comb = parseFloat(document.getElementById('km_combustivel').value) || 0;
+  const cons = parseFloat(document.getElementById('km_consumo').value) || 0;
+  const res  = document.getElementById('kmResult');
+
+  if (fim <= ini) { res.classList.remove('show'); return; }
+
+  const percorrido = fim - ini;
+  const litrosGastos = cons > 0 ? percorrido / cons : null;
+  const custoPorKm  = percorrido > 0 && comb > 0 ? comb / percorrido : null;
+
+  document.getElementById('kr_percorrido').textContent = percorrido.toFixed(1) + ' km';
+  document.getElementById('kr_litros').textContent     = litrosGastos ? litrosGastos.toFixed(2) + ' L' : '— (informe consumo)';
+  document.getElementById('kr_custo').textContent      = comb > 0 ? 'R$ ' + comb.toFixed(2) : '— (informe valor)';
+  document.getElementById('kr_por_km').textContent     = custoPorKm ? 'R$ ' + custoPorKm.toFixed(2) + '/km' : '—';
+  res.classList.add('show');
+}
+
+function salvarKm() {
+  const ini  = parseFloat(document.getElementById('km_ini').value);
+  const fim  = parseFloat(document.getElementById('km_fim').value);
+  const data = document.getElementById('km_data').value;
+
+  if (!data)          { toast('⚠️ Informe a data.', 'error'); return; }
+  if (!ini || !fim)   { toast('⚠️ Informe hodômetro inicial e final.', 'error'); return; }
+  if (fim <= ini)     { toast('⚠️ Hodômetro final deve ser maior que o inicial.', 'error'); return; }
+
+  const comb    = parseFloat(document.getElementById('km_combustivel').value) || 0;
+  const cons    = parseFloat(document.getElementById('km_consumo').value) || 0;
+  const veiculo = document.getElementById('km_veiculo').value.trim();
+  const obs     = document.getElementById('km_obs').value.trim();
+  const percorrido = fim - ini;
+  const litros  = cons > 0 ? percorrido / cons : null;
+  const custoPorKm = percorrido > 0 && comb > 0 ? comb / percorrido : null;
+
+  const registro = {
+    id:          Date.now().toString(),
+    data,
+    veiculo,
+    km_ini:      ini,
+    km_fim:      fim,
+    percorrido,
+    combustivel: comb,
+    consumo:     cons,
+    litros,
+    custo_por_km: custoPorKm,
+    obs,
+    criado_em:   new Date().toISOString()
+  };
+
+  const arr = kmGetRegistros();
+  arr.unshift(registro);
+  kmSaveRegistros(arr);
+
+  // Limpar campos
+  ['km_ini','km_fim','km_combustivel','km_consumo','km_veiculo','km_obs'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('kmResult').classList.remove('show');
+
+  renderKmHistorico();
+  renderKmResumo();
+  toast('✅ Registro de KM salvo!', 'success');
+}
+
+function renderKmHistorico() {
+  const arr = kmGetRegistros();
+  const el  = document.getElementById('kmHistorico');
+  if (!arr.length) {
+    el.innerHTML = '<div class="km-empty">Nenhum registro ainda.</div>';
+    return;
+  }
+  el.innerHTML = arr.slice(0, 30).map(r => {
+    const dataFmt = r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+    const custStr = r.combustivel > 0 ? ` · R$ ${r.combustivel.toFixed(2)}` : '';
+    const veic    = r.veiculo ? ` · ${r.veiculo}` : '';
+    return `
+      <div class="km-history-item">
+        <div>
+          <div style="font-weight:600;font-size:0.83rem;">${dataFmt}${veic}</div>
+          <div class="km-history-date">${r.obs || ('KM ' + r.km_ini + ' → ' + r.km_fim)}${custStr}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="km-history-km">${r.percorrido.toFixed(1)} km</span>
+          <button onclick="excluirKmRegistro('${r.id}')" title="Excluir" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:0;">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderKmResumo() {
+  const arr = kmGetRegistros();
+  const mesAtual = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const doMes = arr.filter(r => r.data && r.data.startsWith(mesAtual));
+  const el = document.getElementById('kmResumo');
+  if (!doMes.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const totalKm   = doMes.reduce((s, r) => s + r.percorrido, 0);
+  const totalComb = doMes.reduce((s, r) => s + (r.combustivel || 0), 0);
+  document.getElementById('resumo_km').textContent   = totalKm.toFixed(1) + ' km';
+  document.getElementById('resumo_comb').textContent = totalComb > 0 ? 'R$ ' + totalComb.toFixed(2) : '—';
+  document.getElementById('resumo_reg').textContent  = doMes.length + ' registro(s)';
+}
+
+function excluirKmRegistro(id) {
+  const arr = kmGetRegistros().filter(r => r.id !== id);
+  kmSaveRegistros(arr);
+  renderKmHistorico();
+  renderKmResumo();
+  toast('🗑️ Registro removido.', 'success');
+}
+
+function limparHistoricoKm() {
+  if (!confirm('Deseja apagar todo o histórico de KM? Esta ação não pode ser desfeita.')) return;
+  kmSaveRegistros([]);
+  renderKmHistorico();
+  renderKmResumo();
+  toast('🗑️ Histórico de KM apagado.', 'success');
 }
 
 // ─── SUPABASE / BANCO DE DADOS ────────────────────────────────────────────────
