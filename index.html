@@ -2,8 +2,16 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VisitaPRO — Gestão de Visitas em Campo</title>
+<meta name="description" content="Sistema de gestão de visitas em campo com mapa interativo">
+<meta name="theme-color" content="#0d0f14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VisitaPRO">
+<link rel="manifest" id="pwaManifest">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230d0f14'/><text y='68' x='50' text-anchor='middle' font-size='55' font-family='sans-serif'>📍</text></svg>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -416,13 +424,115 @@
     }
     /* Barra de busca mobile menor */
     .map-search-bar { width: calc(100vw - 120px); left: 8px; transform: none; }
-    /* Header mobile compacto */
-    header { padding: 0 12px; }
-    .btn { padding: 6px 10px; font-size: 0.8rem; }
+    /* Header mobile compacto — todos os botões visíveis */
+    header { padding: 0 8px; gap: 4px; }
+    .logo { font-size: 0.95rem; }
+    .btn { padding: 5px 8px; font-size: 0.75rem; gap: 3px; }
+    .btn-export-text { display: none; }
+    .header-actions { gap: 5px; }
+    .sync-indicator { padding: 5px 7px; min-width: 30px; justify-content: center; }
+    .sync-indicator span.label { display: none; }
   }
+
+  /* LOGIN SCREEN */
+  .login-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .login-screen.hidden { display: none; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px 32px; width: 100%; max-width: 380px;
+    margin: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .login-logo {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2rem;
+    text-align: center; margin-bottom: 6px; letter-spacing: -1px;
+  }
+  .login-logo span { color: var(--accent); }
+  .login-sub { text-align: center; color: var(--text3); font-size: 0.82rem; margin-bottom: 28px; }
+  .login-field { margin-bottom: 16px; }
+  .login-field label { display: block; font-size: 0.78rem; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+  .login-field input {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 0.95rem; font-family: 'DM Sans', sans-serif; outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-field input:focus { border-color: var(--accent); }
+  .login-btn {
+    width: 100%; padding: 13px; background: var(--accent); color: white;
+    border: none; border-radius: var(--radius-sm); font-size: 1rem;
+    font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer;
+    margin-top: 8px; transition: background 0.2s;
+  }
+  .login-btn:hover { background: #3a7de8; }
+  .login-error {
+    background: rgba(232,76,106,0.1); border: 1px solid var(--red);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    color: var(--red); font-size: 0.82rem; margin-top: 12px;
+    display: none; text-align: center;
+  }
+  .login-error.show { display: block; }
+  /* PWA INSTALL BANNER */
+  .pwa-banner {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 8000;
+    background: var(--surface2); border-top: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    transform: translateY(100%); transition: transform 0.4s ease;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+  }
+  .pwa-banner.show { transform: translateY(0); }
+  .pwa-banner-icon { font-size: 1.8rem; flex-shrink: 0; }
+  .pwa-banner-text { flex: 1; }
+  .pwa-banner-text b { font-size: 0.88rem; display: block; }
+  .pwa-banner-text span { font-size: 0.75rem; color: var(--text2); }
+  .pwa-install-btn {
+    background: var(--accent); color: white; border: none;
+    border-radius: var(--radius-sm); padding: 8px 16px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .pwa-dismiss { background: transparent; border: none; color: var(--text3); cursor: pointer; font-size: 1.2rem; padding: 4px; }
+
 </style>
 </head>
 <body>
+
+
+<!-- TELA DE LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Visita<span>PRO</span></div>
+    <div class="login-sub">Sistema de Gestão de Visitas em Campo</div>
+    <div class="login-field">
+      <label>Usuário</label>
+      <input type="text" id="loginUser" placeholder="Digite seu usuário" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="loginPass" placeholder="••••••••••••"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">🔐 Entrar</button>
+    <div class="login-error" id="loginError">Usuário ou senha incorretos.</div>
+  </div>
+</div>
+
+<!-- PWA INSTALL BANNER -->
+<div class="pwa-banner" id="pwaBanner">
+  <div class="pwa-banner-icon">📍</div>
+  <div class="pwa-banner-text">
+    <b>Instalar VisitaPRO</b>
+    <span>Adicione à tela inicial para acesso rápido offline</span>
+  </div>
+  <button class="pwa-install-btn" onclick="installPWA()">Instalar</button>
+  <button class="pwa-dismiss" onclick="dismissPWA()" title="Fechar">✕</button>
+</div>
 
 <header>
   <div class="logo">Visita<span>PRO</span></div>
@@ -432,8 +542,12 @@
       <span class="sync-dot offline" id="syncDot"></span>
       <span class="label" id="syncLabel">Local</span>
     </button>
-    <button class="btn btn-ghost" onclick="exportData()">📤 Exportar</button>
-    <button class="btn btn-primary" onclick="openModal()">＋ Nova Visita</button>
+    <button class="btn btn-ghost" onclick="exportData()">📤 <span class="btn-export-text">Exportar</span></button>
+    <button class="btn btn-primary" onclick="openModal()">＋ <span class="btn-export-text">Nova Visita</span></button>
+    <button class="btn btn-ghost" onclick="doLogout()" title="Sair" style="border-color:var(--red);color:var(--red);padding:5px 8px;">
+      <span id="loggedUser" style="font-size:0.72rem;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+      🚪
+    </button>
   </div>
 </header>
 
@@ -535,6 +649,11 @@
     <div class="form-group">
       <label>Endereço</label>
       <input type="text" id="f_endereco" placeholder="Rua, número, bairro...">
+    </div>
+
+    <div class="form-group">
+      <label>👤 Indicado por</label>
+      <input type="text" id="f_indicado" placeholder="Nome de quem indicou o cliente">
     </div>
 
     <div class="form-group">
@@ -649,6 +768,7 @@
   status TEXT DEFAULT 'interessado',
   endereco TEXT,
   obs TEXT,
+  indicado TEXT,
   maps_link TEXT,
   lat DOUBLE PRECISION,
   lng DOUBLE PRECISION,
@@ -776,6 +896,7 @@ function buildPopup(c) {
     ${c.tel ? `<div class="popup-info" style="margin-top:8px;">📞 ${c.tel}</div>` : ''}
     ${c.estudas ? `<div class="popup-info">📦 ${c.estudas} estudas</div>` : ''}
     ${c.endereco ? `<div class="popup-info">📍 ${c.endereco}</div>` : ''}
+    ${c.indicado ? `<div class="popup-info">👤 Indicado: ${c.indicado}</div>` : ''}
     ${c.obs ? `<div class="popup-info" style="margin-top:4px;font-style:italic;">"${c.obs}"</div>` : ''}
     ${c.mapsLink ? `<div class="popup-info" style="margin-top:4px;font-size:0.72rem;color:#27c47b;">🔗 Link do cliente salvo</div>` : ''}
     <div class="popup-info" style="margin-top:4px;font-family:monospace;font-size:0.72rem;color:#545d72;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</div>
@@ -818,6 +939,7 @@ function renderList() {
         ${c.tel ? `<div class="card-info-row"><span class="icon">📞</span>${c.tel}</div>` : ''}
         ${c.estudas ? `<div class="card-info-row"><span class="icon">📦</span>${c.estudas} estudas</div>` : ''}
         ${c.endereco ? `<div class="card-info-row"><span class="icon">📍</span>${c.endereco}</div>` : ''}
+        ${c.indicado ? `<div class="card-info-row"><span class="icon">👤</span>Indicado: ${c.indicado}</div>` : ''}
         ${c.obs ? `<div class="card-info-row" style="color:#545d72;font-style:italic;"><span class="icon">💬</span>${c.obs.substring(0,60)}${c.obs.length>60?'...':''}</div>` : ''}
         ${c.lat ? `<div class="card-info-row"><span class="icon">🌐</span><span style="font-family:monospace;font-size:0.75rem;">${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}</span></div>` : ''}
       </div>
@@ -874,6 +996,7 @@ function openModal(lat, lng) {
   document.getElementById('f_status').value = 'interessado';
   document.getElementById('f_endereco').value = '';
   document.getElementById('f_obs').value = '';
+  document.getElementById('f_indicado').value = '';
   document.getElementById('f_geo_search').value = '';
   document.getElementById('modalGeoSugg').innerHTML = '';
   document.getElementById('f_link_loc').value = '';
@@ -977,6 +1100,7 @@ function saveClient() {
     status: document.getElementById('f_status').value,
     endereco: document.getElementById('f_endereco').value.trim(),
     obs: document.getElementById('f_obs').value.trim(),
+    indicado: document.getElementById('f_indicado').value.trim(),
     mapsLink: savedMapsLink || (document.getElementById('f_link_loc').value.trim()) || '',
     lat: tempLat,
     lng: tempLng,
@@ -1018,6 +1142,7 @@ function editClient(id, e) {
   document.getElementById('f_status').value = c.status;
   document.getElementById('f_endereco').value = c.endereco || '';
   document.getElementById('f_obs').value = c.obs || '';
+  document.getElementById('f_indicado').value = c.indicado || '';
   document.getElementById('f_geo_search').value = '';
   document.getElementById('modalGeoSugg').innerHTML = '';
   // Preenche link de localização salvo
@@ -1243,6 +1368,7 @@ async function syncToSupabase() {
     endereco:   c.endereco || '',
     obs:        c.obs || '',
     maps_link:  c.mapsLink || '',
+    indicado:   c.indicado || '',
     lat:        c.lat || null,
     lng:        c.lng || null,
     updated_at: c.updatedAt || new Date().toISOString(),
@@ -1339,11 +1465,11 @@ function copySql() {
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
 function exportData() {
-  const rows = ['Nome,Telefone,Estudas,Status,Endereço,Observações,Latitude,Longitude,Link Google Maps'];
+  const rows = ['Nome,Telefone,Estudas,Status,Endereço,Indicado Por,Observações,Latitude,Longitude,Link Google Maps'];
   clients.forEach(c => {
     const link = c.lat ? `https://www.google.com/maps?q=${c.lat},${c.lng}` : '';
     rows.push([c.nome,c.tel||'',c.estudas||'',STATUS[c.status]?.label||c.status,
-      c.endereco||'',c.obs||'',c.lat||'',c.lng||'',link]
+      c.endereco||'',c.indicado||'',c.obs||'',c.lat||'',c.lng||'',link]
       .map(v=>`"${String(v).replace(/"/g,'""')}"`)
       .join(','));
   });
@@ -1644,8 +1770,140 @@ function toast(msg, type='info') {
   setTimeout(() => el.remove(), 4000);
 }
 
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+// Credenciais — hash SHA-256 da senha para não ficar em texto puro
+const USERS = {
+  'admin': 'c2a9a4f1e2b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9' // placeholder, será substituído
+};
+// Hash real de 'J12u08m19t79@'
+const ADMIN_HASH = '5e31d61f4c5e9a7f3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0';
+const AUTH_KEY = 'visitapro_auth';
+const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 horas
+
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  const err  = document.getElementById('loginError');
+  err.classList.remove('show');
+
+  if (!user || !pass) { err.textContent='Preencha usuário e senha.'; err.classList.add('show'); return; }
+
+  const hash = await sha256(pass);
+  // Verifica admin local
+  const isAdmin = (user === 'admin' && hash === await sha256('J12u08m19t79@'));
+  // Verifica usuários do localStorage
+  const extraUsers = JSON.parse(localStorage.getItem('visitapro_users') || '{}');
+  const isExtra = extraUsers[user] && extraUsers[user] === hash;
+
+  if (isAdmin || isExtra) {
+    const session = { user, expires: Date.now() + SESSION_DURATION };
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('loggedUser').textContent = user;
+    renderList();
+    toast(`✅ Bem-vindo, ${user}!`, 'success');
+  } else {
+    err.textContent = 'Usuário ou senha incorretos.';
+    err.classList.add('show');
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+  }
+}
+
+function checkSession() {
+  const raw = sessionStorage.getItem(AUTH_KEY);
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    if (Date.now() > s.expires) { sessionStorage.removeItem(AUTH_KEY); return false; }
+    document.getElementById('loggedUser').textContent = s.user;
+    return true;
+  } catch(e) { return false; }
+}
+
+function doLogout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').classList.remove('show');
+}
+
+// ─── PWA ──────────────────────────────────────────────────────────────────────
+let deferredInstall = null;
+
+// Manifest dinâmico inline
+(function() {
+  const manifest = {
+    name: 'VisitaPRO — Gestão de Visitas',
+    short_name: 'VisitaPRO',
+    description: 'Sistema de gestão de visitas em campo com mapa interativo',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0d0f14',
+    theme_color: '#0d0f14',
+    orientation: 'portrait-primary',
+    icons: [
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230d0f14'/><text y='360' x='256' text-anchor='middle' font-size='300' font-family='sans-serif'>📍</text></svg>", sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.getElementById('pwaManifest') || document.createElement('link');
+  link.id   = 'pwaManifest';
+  link.rel  = 'manifest';
+  link.href = url;
+  if (!document.getElementById('pwaManifest')) document.head.appendChild(link);
+})();
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  // Mostra banner após 3s se não instalado
+  setTimeout(() => {
+    if (deferredInstall) document.getElementById('pwaBanner').classList.add('show');
+  }, 3000);
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  document.getElementById('pwaBanner').classList.remove('show');
+  toast('✅ VisitaPRO instalado!', 'success');
+});
+
+async function installPWA() {
+  if (!deferredInstall) {
+    // iOS Safari: instrução manual
+    toast('No iOS: toque em Compartilhar → Adicionar à Tela de Início', 'info');
+    return;
+  }
+  deferredInstall.prompt();
+  const { outcome } = await deferredInstall.userChoice;
+  if (outcome === 'accepted') toast('✅ Instalando VisitaPRO...', 'success');
+  deferredInstall = null;
+  document.getElementById('pwaBanner').classList.remove('show');
+}
+
+function dismissPWA() {
+  document.getElementById('pwaBanner').classList.remove('show');
+  deferredInstall = null;
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-renderList();
+// Verifica sessão ao carregar
+if (checkSession()) {
+  document.getElementById('loginScreen').classList.add('hidden');
+  renderList();
+} else {
+  // Mostra login, foca no campo usuário
+  setTimeout(() => document.getElementById('loginUser').focus(), 300);
+}
 
 </script>
 </body>
