@@ -1017,7 +1017,8 @@ CREATE POLICY "allow_all" ON visitapro_clients
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ─── DATA ───────────────────────────────────────────────────────────────────
-const STORAGE_KEY = 'visitapro_clients';
+const STORAGE_KEY      = 'visitapro_clients';
+const PENDING_DEL_KEY  = 'visitapro_pending_deletes'; // fila de deleções offline
 let clients = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let editingId = null;
 let currentFilter = 'todos';
@@ -1395,17 +1396,72 @@ function editClient(id, e) {
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
-function deleteClient(id, e) {
+
+// Fila offline: IDs deletados localmente aguardam próximo sync para sair do Supabase
+function pendingDelGet()       { try { return JSON.parse(localStorage.getItem(PENDING_DEL_KEY) || '[]'); } catch { return []; } }
+function pendingDelAdd(id)     { const q = pendingDelGet(); if (!q.includes(id)) { q.push(id); localStorage.setItem(PENDING_DEL_KEY, JSON.stringify(q)); } }
+function pendingDelRemove(ids) { const q = pendingDelGet().filter(i => !ids.includes(i)); localStorage.setItem(PENDING_DEL_KEY, JSON.stringify(q)); }
+
+// Envia DELETE para um único cliente no Supabase
+async function deleteClientFromSupabase(id) {
+  if (!sbConnected || !sbUrl || !sbKey) return false;
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/visitapro_clients?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`, 'Prefer': 'return=minimal' }
+    });
+    return res.ok || res.status === 204;
+  } catch(e) {
+    console.warn('Client delete sync falhou (offline):', e.message);
+    return false;
+  }
+}
+
+// Esvazia a fila de deleções acumuladas offline
+async function flushPendingDeletes() {
+  if (!sbConnected) return;
+  const queue = pendingDelGet();
+  if (!queue.length) return;
+  addSyncLog(`🗑️ Enviando ${queue.length} deleção(ões) pendente(s)...`);
+  const succeeded = [];
+  for (const id of queue) {
+    if (await deleteClientFromSupabase(id)) succeeded.push(id);
+  }
+  if (succeeded.length) {
+    pendingDelRemove(succeeded);
+    addSyncLog(`✅ ${succeeded.length} deleção(ões) aplicada(s) no Supabase.`);
+  }
+  const rem = pendingDelGet().length;
+  if (rem) addSyncLog(`⚠️ ${rem} deleção(ões) ainda pendente(s) — Supabase offline?`);
+}
+
+async function deleteClient(id, e) {
   if (e) e.stopPropagation();
-  const c = clients.find(x=>x.id===id);
+  const c = clients.find(x => x.id === id);
   if (!c) return;
   if (!confirm(`Remover "${c.nome}"?`)) return;
+
+  // Remove localmente
   if (markers[id]) map.removeLayer(markers[id]);
   delete markers[id];
-  clients = clients.filter(x=>x.id!==id);
+  clients = clients.filter(x => x.id !== id);
   save();
   renderList();
   toast(`🗑️ "${c.nome}" removido.`, 'info');
+
+  // Tenta deletar do Supabase; se offline, enfileira para próximo sync
+  if (sbConnected) {
+    const ok = await deleteClientFromSupabase(id);
+    if (ok) {
+      addSyncLog(`🗑️ "${c.nome}" removido do Supabase.`);
+    } else {
+      pendingDelAdd(id);
+      addSyncLog(`⚠️ "${c.nome}" na fila — será removido do Supabase ao reconectar.`);
+    }
+  } else if (dbMode !== 'local') {
+    pendingDelAdd(id);
+    addSyncLog(`📋 "${c.nome}" enfileirado para deleção offline.`);
+  }
 }
 
 // ─── LINKS ───────────────────────────────────────────────────────────────────
@@ -1792,7 +1848,8 @@ async function testSupabaseConn() {
       updateSyncIndicator('online', 'Supabase');
       document.getElementById('syncActions').style.display = 'block';
       toast('✅ Supabase conectado!', 'success');
-      migrateKmLocalToSupabase(); // migra KM pendente (se houver)
+      migrateKmLocalToSupabase();  // migra KM pendente (se houver)
+      flushPendingDeletes();       // descarrega deleções acumuladas offline
     } else {
       const err = await res.text();
       addSyncLog(`❌ Erro ${res.status}: ${err.substring(0, 80)}`);
@@ -1811,43 +1868,80 @@ async function syncToSupabase() {
   const btn = document.getElementById('btnSyncUp');
   btn.disabled = true; btn.textContent = '⏳ Enviando...';
   updateSyncIndicator('syncing', 'Enviando');
-  addSyncLog(`☁️ Enviando ${clients.length} cliente(s) para o Supabase...`);
-
-  const rows = clients.map(c => ({
-    id:         c.id,
-    nome:       c.nome,
-    tel:        c.tel || '',
-    estudas:    c.estudas || '',
-    status:     c.status,
-    endereco:   c.endereco || '',
-    obs:        c.obs || '',
-    maps_link:  c.mapsLink || '',
-    indicado:   c.indicado || '',
-    lat:        c.lat || null,
-    lng:        c.lng || null,
-    updated_at: c.updatedAt || new Date().toISOString(),
-  }));
 
   try {
-    const res = await fetch(`${sbUrl}/rest/v1/visitapro_clients`, {
-      method: 'POST',
-      headers: {
-        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify(rows)
-    });
-    if (res.ok || res.status === 201) {
-      addSyncLog(`✅ ${rows.length} registro(s) enviado(s) com sucesso!`);
-      updateSyncIndicator('online', 'Supabase');
-      toast(`✅ ${rows.length} clientes enviados ao Supabase!`, 'success');
-    } else {
-      const err = await res.text();
-      addSyncLog(`❌ Erro no envio: ${err.substring(0, 100)}`);
-      updateSyncIndicator('error', 'Erro');
-      toast('❌ Erro ao enviar dados. Veja o log.', 'error');
+    // ── PASSO 1: Descarregar deleções pendentes acumuladas offline ──────────
+    await flushPendingDeletes();
+
+    // ── PASSO 2: Upsert de todos os clientes locais ─────────────────────────
+    addSyncLog(`☁️ Enviando ${clients.length} cliente(s) para o Supabase...`);
+    const rows = clients.map(c => ({
+      id:         c.id,
+      nome:       c.nome,
+      tel:        c.tel || '',
+      estudas:    c.estudas || '',
+      status:     c.status,
+      endereco:   c.endereco || '',
+      obs:        c.obs || '',
+      maps_link:  c.mapsLink || '',
+      indicado:   c.indicado || '',
+      lat:        c.lat || null,
+      lng:        c.lng || null,
+      updated_at: c.updatedAt || new Date().toISOString(),
+    }));
+
+    if (rows.length > 0) {
+      const resUp = await fetch(`${sbUrl}/rest/v1/visitapro_clients`, {
+        method: 'POST',
+        headers: {
+          'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(rows)
+      });
+      if (!resUp.ok && resUp.status !== 201) {
+        const err = await resUp.text();
+        addSyncLog(`❌ Erro no upsert: ${err.substring(0, 100)}`);
+        updateSyncIndicator('error', 'Erro');
+        toast('❌ Erro ao enviar dados. Veja o log.', 'error');
+        btn.disabled = false; btn.textContent = '☁️ Enviar dados locais → Supabase';
+        return;
+      }
+      addSyncLog(`✅ ${rows.length} cliente(s) enviado(s).`);
     }
+
+    // ── PASSO 3: Reconciliação — remove do Supabase quem não existe mais local ─
+    addSyncLog('🔍 Verificando registros órfãos no Supabase...');
+    const resIds = await fetch(`${sbUrl}/rest/v1/visitapro_clients?select=id`, {
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+    if (resIds.ok) {
+      const remoteRows  = await resIds.json();
+      const localIds    = new Set(clients.map(c => c.id));
+      const orphanIds   = remoteRows.map(r => r.id).filter(id => !localIds.has(id));
+
+      if (orphanIds.length > 0) {
+        addSyncLog(`🗑️ Removendo ${orphanIds.length} registro(s) órfão(s) do Supabase...`);
+        // Deleta em lote usando o operador "in" do PostgREST
+        const inList = orphanIds.map(id => '"' + id + '"').join(',');
+        const resDel = await fetch(`${sbUrl}/rest/v1/visitapro_clients?id=in.(${inList})`, {
+          method: 'DELETE',
+          headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`, 'Prefer': 'return=minimal' }
+        });
+        if (resDel.ok || resDel.status === 204) {
+          addSyncLog(`✅ ${orphanIds.length} órfão(s) removido(s) com sucesso.`);
+        } else {
+          addSyncLog(`⚠️ Falha ao remover órfãos: ${resDel.status}`);
+        }
+      } else {
+        addSyncLog('✅ Nenhum registro órfão encontrado.');
+      }
+    }
+
+    updateSyncIndicator('online', 'Supabase');
+    toast(`✅ Supabase sincronizado — ${rows.length} cliente(s)!`, 'success');
+
   } catch(e) {
     addSyncLog('❌ Falha: ' + e.message);
     updateSyncIndicator('error', 'Offline');
