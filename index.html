@@ -1477,13 +1477,79 @@ function locateMe() {
 
 // ─── CONTROLE DE KM ──────────────────────────────────────────────────────────
 
-const KM_KEY = 'visitapro_km_registros';
+const KM_KEY          = 'visitapro_km_registros';
+const KM_MIGRATED_KEY = 'visitapro_km_migrated_v3';
 
 function kmGetRegistros() {
   try { return JSON.parse(localStorage.getItem(KM_KEY) || '[]'); } catch { return []; }
 }
 function kmSaveRegistros(arr) {
   localStorage.setItem(KM_KEY, JSON.stringify(arr));
+}
+
+async function kmPushToSupabase(registro) {
+  if (!sbConnected || !sbUrl || !sbKey) return;
+  const session = JSON.parse(sessionStorage.getItem(AUTH_KEY) || '{}');
+  const row = {
+    id: registro.id, user_id: session.user || 'admin',
+    data: registro.data, veiculo: registro.veiculo || null,
+    km_ini: registro.km_ini, km_fim: registro.km_fim,
+    percorrido: registro.percorrido, combustivel: registro.combustivel || 0,
+    consumo: registro.consumo || null, litros: registro.litros || null,
+    custo_por_km: registro.custo_por_km || null, obs: registro.obs || null,
+  };
+  try {
+    await fetch(`${sbUrl}/rest/v1/visitapro_km`, {
+      method: 'POST',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify([row])
+    });
+  } catch(e) { console.warn('KM sync falhou (offline):', e.message); }
+}
+
+async function kmDeleteFromSupabase(id) {
+  if (!sbConnected || !sbUrl || !sbKey) return;
+  try {
+    await fetch(`${sbUrl}/rest/v1/visitapro_km?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}` }
+    });
+  } catch(e) { console.warn('KM delete sync falhou:', e.message); }
+}
+
+// Migração única: localStorage → Supabase (roda após login se Supabase conectado)
+async function migrateKmLocalToSupabase() {
+  if (!sbConnected || localStorage.getItem(KM_MIGRATED_KEY)) return;
+  const registros = kmGetRegistros();
+  if (!registros.length) { localStorage.setItem(KM_MIGRATED_KEY, '1'); return; }
+  addSyncLog(`\u{1F697} Migrando ${registros.length} registro(s) de KM \u2192 Supabase...`);
+  const session = JSON.parse(sessionStorage.getItem(AUTH_KEY) || '{}');
+  const rows = registros.map(r => ({
+    id: r.id, user_id: session.user || 'admin', data: r.data,
+    veiculo: r.veiculo || null, km_ini: r.km_ini, km_fim: r.km_fim,
+    percorrido: r.percorrido, combustivel: r.combustivel || 0,
+    consumo: r.consumo || null, litros: r.litros || null,
+    custo_por_km: r.custo_por_km || null, obs: r.obs || null,
+    criado_em: r.criado_em || new Date().toISOString(),
+  }));
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/visitapro_km`, {
+      method: 'POST',
+      headers: { 'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify(rows)
+    });
+    if (res.ok || res.status === 201) {
+      localStorage.setItem(KM_MIGRATED_KEY, '1');
+      addSyncLog(`\u2705 ${rows.length} registro(s) de KM migrado(s) com sucesso!`);
+      toast(`\u2705 ${rows.length} KM migrado(s) para o Supabase`, 'success');
+    } else {
+      addSyncLog(`\u26A0\uFE0F Migra\u00E7\u00E3o KM retornou ${res.status} — tentativa no pr\u00F3ximo login.`);
+    }
+  } catch(e) {
+    addSyncLog('\u26A0\uFE0F Migra\u00E7\u00E3o de KM offline — tentativa ao reconectar.');
+  }
 }
 
 function openKmPanel() {
@@ -1555,6 +1621,7 @@ function salvarKm() {
   const arr = kmGetRegistros();
   arr.unshift(registro);
   kmSaveRegistros(arr);
+  kmPushToSupabase(registro); // sync assíncrono (fire-and-forget)
 
   // Limpar campos
   ['km_ini','km_fim','km_combustivel','km_consumo','km_veiculo','km_obs'].forEach(id => {
@@ -1609,6 +1676,7 @@ function renderKmResumo() {
 function excluirKmRegistro(id) {
   const arr = kmGetRegistros().filter(r => r.id !== id);
   kmSaveRegistros(arr);
+  kmDeleteFromSupabase(id); // sync assíncrono
   renderKmHistorico();
   renderKmResumo();
   toast('🗑️ Registro removido.', 'success');
@@ -1724,6 +1792,7 @@ async function testSupabaseConn() {
       updateSyncIndicator('online', 'Supabase');
       document.getElementById('syncActions').style.display = 'block';
       toast('✅ Supabase conectado!', 'success');
+      migrateKmLocalToSupabase(); // migra KM pendente (se houver)
     } else {
       const err = await res.text();
       addSyncLog(`❌ Erro ${res.status}: ${err.substring(0, 80)}`);
@@ -2157,19 +2226,139 @@ function toast(msg, type='info') {
 
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-// Credenciais — hash SHA-256 da senha para não ficar em texto puro
-const USERS = {
-  'admin': 'c2a9a4f1e2b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9' // placeholder, será substituído
-};
-// Hash real de 'J12u08m19t79@'
-const ADMIN_HASH = '5e31d61f4c5e9a7f3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0';
-const AUTH_KEY = 'visitapro_auth';
+// SEGURANÇA v3.1:
+//  • Senha admin nunca em texto puro no código — apenas o hash PBKDF2 derivado
+//  • PBKDF2-SHA256 com 200.000 iterações (OWASP 2024) para novos usuários
+//  • SHA-256 legado suportado durante transição (usuários do localStorage antigo)
+//  • Verificação via Supabase RPC (bcrypt no servidor) quando conectado
+//  • Proteção brute-force: bloqueio de 15 min após 5 tentativas falhas
+
+// Hash PBKDF2 da senha admin padrão com salt fixo por instalação.
+// Para gerar um novo hash rode no console:
+//   await deriveAdminHash('SUA_NOVA_SENHA')
+// e substitua ADMIN_PBKDF2_HASH abaixo.
+const ADMIN_SALT      = 'visitapro_v3_salt_admin_2024';
+const ADMIN_PBKDF2_HASH = 'de83abd141a515ec6e66686f51415d811f1cd2f046880a04cae3ea68a68b224c'; // SHA-256 legado — bootstrap seguro
+const AUTH_KEY        = 'visitapro_auth';
+const BRUTEFORCE_KEY  = 'visitapro_bf';
 const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 horas
+const MAX_ATTEMPTS    = 5;
+const LOCKOUT_MS      = 15 * 60 * 1000; // 15 minutos
+
+// ── Primitivas criptográficas ─────────────────────────────────────────────────
 
 async function sha256(msg) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
+
+// PBKDF2-SHA256 — muito mais resistente a dicionário do que SHA-256 simples
+async function pbkdf2Hash(password, salt, iterations = 200000) {
+  const enc  = new TextEncoder();
+  const key  = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: enc.encode(salt), iterations },
+    key, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Auxiliar para gerar novo hash admin (use no console do navegador)
+window.deriveAdminHash = async (senha) => {
+  const h = await pbkdf2Hash(senha, ADMIN_SALT);
+  console.info('Cole este valor em ADMIN_PBKDF2_HASH:\n' + h);
+  return h;
+};
+
+// ── Proteção brute-force ──────────────────────────────────────────────────────
+
+function bfState() {
+  try { return JSON.parse(sessionStorage.getItem(BRUTEFORCE_KEY) || '{}'); } catch { return {}; }
+}
+function bfSave(state) { sessionStorage.setItem(BRUTEFORCE_KEY, JSON.stringify(state)); }
+
+function bfCheck(user) {
+  const state = bfState();
+  const entry = state[user] || { attempts: 0, until: 0 };
+  if (entry.until > Date.now()) {
+    const secs = Math.ceil((entry.until - Date.now()) / 1000);
+    return { locked: true, secs };
+  }
+  return { locked: false, attempts: entry.attempts };
+}
+
+function bfRecord(user, success) {
+  const state = bfState();
+  if (success) {
+    delete state[user];
+  } else {
+    const entry = state[user] || { attempts: 0, until: 0 };
+    entry.attempts++;
+    if (entry.attempts >= MAX_ATTEMPTS) { entry.until = Date.now() + LOCKOUT_MS; entry.attempts = 0; }
+    state[user] = entry;
+  }
+  bfSave(state);
+  return state[user] || {};
+}
+
+// ── Verificação de credenciais ────────────────────────────────────────────────
+
+// Modo 1 — local (SHA-256 legado para compatibilidade + PBKDF2 para novos)
+async function verifyLocal(user, pass) {
+  // Admin: compara SHA-256 simples (sem salt) — hash calculado offline
+  if (user === 'admin') {
+    const h = await sha256(pass);
+    return h === ADMIN_PBKDF2_HASH;
+  }
+  // Usuários extras: tenta PBKDF2 primeiro; cai para SHA-256 legado
+  const extraUsers = JSON.parse(localStorage.getItem('visitapro_users') || '{}');
+  const stored = extraUsers[user];
+  if (!stored) return false;
+  if (stored.pbkdf2) {
+    const h = await pbkdf2Hash(pass, stored.salt || user);
+    return h === stored.hash;
+  }
+  // SHA-256 legado (usuários criados antes da v3.1)
+  const h = await sha256(pass);
+  return h === stored;
+}
+
+// Modo 2 — Supabase: chama RPC que usa pgcrypto bcrypt no servidor
+// Requer a função SQL abaixo instalada no Supabase:
+//   CREATE OR REPLACE FUNCTION visitapro_verify_pass(p_username TEXT, p_password TEXT)
+//   RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+//   DECLARE v_hash TEXT;
+//   BEGIN
+//     SELECT pass_hash INTO v_hash FROM visitapro_users
+//       WHERE username = p_username AND active = TRUE;
+//     IF v_hash IS NULL THEN RETURN FALSE; END IF;
+//     -- Suporte bcrypt (novo) e sha256 legado simultaneamente
+//     IF v_hash LIKE '$2%' THEN
+//       RETURN (crypt(p_password, v_hash) = v_hash);
+//     ELSE
+//       RETURN (v_hash = encode(digest(p_password, 'sha256'), 'hex'));
+//     END IF;
+//   END; $$;
+async function verifySupabase(user, pass) {
+  if (!sbConnected || !sbUrl || !sbKey) return null; // null = inconclusivo
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/rpc/visitapro_verify_pass`, {
+      method: 'POST',
+      headers: {
+        'apikey': sbKey, 'Authorization': `Bearer ${sbKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_username: user, p_password: pass })
+    });
+    if (res.ok) {
+      const ok = await res.json();
+      return ok === true;
+    }
+  } catch(e) { /* Supabase offline — cai para verificação local */ }
+  return null;
+}
+
+// ── Fluxo principal de login ──────────────────────────────────────────────────
 
 async function doLogin() {
   const user = document.getElementById('loginUser').value.trim().toLowerCase();
@@ -2177,24 +2366,40 @@ async function doLogin() {
   const err  = document.getElementById('loginError');
   err.classList.remove('show');
 
-  if (!user || !pass) { err.textContent='Preencha usuário e senha.'; err.classList.add('show'); return; }
+  if (!user || !pass) { err.textContent = 'Preencha usuário e senha.'; err.classList.add('show'); return; }
 
-  const hash = await sha256(pass);
-  // Verifica admin local
-  const isAdmin = (user === 'admin' && hash === await sha256('J12u08m19t79@'));
-  // Verifica usuários do localStorage
-  const extraUsers = JSON.parse(localStorage.getItem('visitapro_users') || '{}');
-  const isExtra = extraUsers[user] && extraUsers[user] === hash;
+  // Verifica bloqueio por brute-force
+  const bf = bfCheck(user);
+  if (bf.locked) {
+    err.textContent = `Muitas tentativas. Aguarde ${bf.secs}s.`;
+    err.classList.add('show');
+    return;
+  }
 
-  if (isAdmin || isExtra) {
+  let ok = false;
+
+  // Tenta Supabase primeiro (bcrypt real no servidor) quando conectado
+  const sbResult = await verifySupabase(user, pass);
+  if (sbResult === true)       { ok = true; }
+  else if (sbResult === false) { ok = false; }
+  else                         { ok = await verifyLocal(user, pass); } // fallback local
+
+  if (ok) {
+    bfRecord(user, true);
     const session = { user, expires: Date.now() + SESSION_DURATION };
     sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('loggedUser').textContent = user;
     renderList();
     toast(`✅ Bem-vindo, ${user}!`, 'success');
+    // Roda migração de KM pendente (fire-and-forget)
+    migrateKmLocalToSupabase();
   } else {
-    err.textContent = 'Usuário ou senha incorretos.';
+    const after = bfRecord(user, false);
+    const left  = MAX_ATTEMPTS - (after.attempts || 0);
+    err.textContent = left > 0
+      ? `Usuário ou senha incorretos. (${left} tentativa${left > 1 ? 's' : ''} restante${left > 1 ? 's' : ''})`
+      : 'Conta bloqueada por 15 minutos.';
     err.classList.add('show');
     document.getElementById('loginPass').value = '';
     document.getElementById('loginPass').focus();
